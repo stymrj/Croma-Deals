@@ -51,6 +51,7 @@ Uses Croma's own search API with the pincode Croma saved for you, sorted by disc
 
 ## Limitations
 
+- Croma blocks pages from loading code or calling Telegram from other sites. Use the full bookmarklet (not the mobile loader), and the userscript for Telegram alerts.
 - Croma does not expose clear per-product stock in its listing, so every product is treated as available.
 - The API is undocumented and can change.
 

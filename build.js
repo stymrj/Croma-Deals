@@ -3,7 +3,7 @@
 const fs = require('fs'), path = require('path'), { execSync } = require('child_process');
 const PAGES = 'https://stymrj.github.io/Croma-Deals/';
 // Some stores block fetching code from other sites; there the "mobile" copy is the full bookmarklet.
-const LOADER_OK = true;
+const LOADER_OK = false;
 const src = path.join(__dirname, 'src/deals.js');
 let code = fs.readFileSync(src, 'utf8');
 // The stylesheet is a template string, so terser leaves it alone: squeeze its whitespace first.
