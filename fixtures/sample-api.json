@@ -1,0 +1,199 @@
+{
+  "products": [
+    {
+      "code": "CRM0001",
+      "name": "Test TV 1 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 19999
+      },
+      "mrp": {
+        "value": 39999
+      },
+      "plpImage": "/media/test-tv-1.jpg",
+      "url": "/test-tv-1/p/CRM0001",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    },
+    {
+      "code": "CRM0002",
+      "name": "Test TV 2 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20099
+      },
+      "mrp": {
+        "value": 40099
+      },
+      "plpImage": "/media/test-tv-2.jpg",
+      "url": "/test-tv-2/p/CRM0002",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    },
+    {
+      "code": "CRM0003",
+      "name": "Test TV 3 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20199
+      },
+      "mrp": {
+        "value": 40199
+      },
+      "plpImage": "/media/test-tv-3.jpg",
+      "url": "/test-tv-3/p/CRM0003",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    },
+    {
+      "code": "CRM0004",
+      "name": "Test TV 4 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": 17999,
+      "mrp": "\u20b935,999",
+      "plpImage": "/media/test-tv-4.jpg",
+      "url": "/test-tv-4/p/CRM0004",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    },
+    {
+      "code": "CRM0005",
+      "name": "Test TV 5 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20399
+      },
+      "mrp": {
+        "value": 40399
+      },
+      "plpImage": "/media/test-tv-5.jpg",
+      "url": "/test-tv-5/p/CRM0005",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    },
+    {
+      "code": "CRM0006",
+      "name": "Test TV 6 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20499
+      },
+      "mrp": {
+        "value": 40499
+      },
+      "plpImage": "/media/test-tv-6.jpg",
+      "url": "/test-tv-6/p/CRM0006",
+      "stock": {
+        "stockLevelStatus": "outOfStock"
+      }
+    },
+    {
+      "code": "CRM0007",
+      "name": "Test TV 7 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20599
+      },
+      "mrp": {
+        "value": 40599
+      },
+      "plpImage": "/media/test-tv-7.jpg",
+      "url": "/test-tv-7/p/CRM0007",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "available": false
+    },
+    {
+      "code": "CRM0008",
+      "name": "Test TV 8 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20699
+      },
+      "mrp": {
+        "value": 40699
+      },
+      "plpImage": "/media/test-tv-8.jpg",
+      "url": "/test-tv-8/p/CRM0008",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "stockStatusText": "Currently Unavailable"
+    },
+    {
+      "code": "CRM0009",
+      "name": "Test TV 9 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20799
+      },
+      "mrp": {
+        "value": 40799
+      },
+      "plpImage": "/media/test-tv-9.jpg",
+      "url": "/test-tv-9/p/CRM0009",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    },
+    {
+      "code": "CRM0010",
+      "name": "Test TV 10 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20899
+      },
+      "mrp": {
+        "value": 40899
+      },
+      "plpImage": "https://example.com/abs.jpg",
+      "url": "/test-tv-10/p/CRM0010",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    },
+    {
+      "code": "CRM0011",
+      "name": "Test TV 11 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 20999
+      },
+      "mrp": {
+        "value": 40999
+      },
+      "plpImage": "/media/test-tv-11.jpg",
+      "url": "/test-tv-11/p/CRM0011",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    },
+    {
+      "code": "CRM0012",
+      "name": "Test TV 12 43 inch Smart",
+      "manufacturer": "TestBrand",
+      "price": {
+        "value": 21099
+      },
+      "mrp": {
+        "value": 41099
+      },
+      "plpImage": "/media/test-tv-12.jpg",
+      "url": "/test-tv-12/p/CRM0012",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      }
+    }
+  ],
+  "pagination": {
+    "totalPages": 3,
+    "totalResults": 36,
+    "pageSize": 12
+  }
+}

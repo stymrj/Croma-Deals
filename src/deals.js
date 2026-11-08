@@ -37,47 +37,156 @@
     { id: 'c11', name: "Health & Fitness", subs: [["11", "Health & Fitness"]] },
     { id: 'c29', name: "Storage Devices", subs: [["29", "Storage Devices"]] }
   ];
+  function cromaPinSaved() {
+    try { return !!localStorage.getItem('3hrPincode') || !!(JSON.parse(localStorage.getItem('pincodeLatLong') || '{}').pincode); } catch (e) { return false; }
+  }
+  // Extra pincodes to try (comma-separated, set in the sidebar). The first
+  // pincode that returns results wins for that category.
+  function cromaPins() {
+    const extra = String(store.pin || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (extra.length) return extra;
+    return [cromaPin()];
+  }
   // Croma keeps the chosen pincode in localStorage.
   function cromaPin() {
     try { const v = localStorage.getItem('3hrPincode'); if (v) return JSON.parse(v); } catch (e) { /* ignore */ }
     try { const v = JSON.parse(localStorage.getItem('pincodeLatLong') || '{}'); if (v.pincode) return v.pincode; } catch (e) { /* ignore */ }
     return '400049';
   }
+  // ── v2 fetch + parse ──────────────────────────────────────────────
+  // The API returns price/mrp as {value} objects, numbers, or formatted
+  // strings; stock as stockLevelStatus / stockStatus / availability flags.
+  // normalise() accepts every shape, recomputes the discount from price vs
+  // MRP, and only marks a product out of stock when the payload actually
+  // says so (previously every product was treated as available). Items are
+  // NOT dropped here for being below the user's minimum discount: that
+  // filter lives in filtered(), so the discount selection is preserved.
+  const pv = v => (v && typeof v === 'object' ? (v.value != null ? v.value : v.formattedValue) : v);
+  function cromaStock(x) {
+    const st = x.stock || {};
+    // Explicit unavailable signals win over a generic 'inStock' status string.
+    if (x.outOfStock === true || x.available === false || st.available === false) return false;
+    const txt = String(x.stockStatusText || st.stockStatusText || '').toLowerCase();
+    if (txt.indexOf('unavailable') >= 0 || txt.indexOf('out of stock') >= 0) return false;
+    const status = String(st.stockLevelStatus || x.stockLevelStatus || x.stockStatus || '').toLowerCase();
+    if (status === 'outofstock' || status === 'out_of_stock' || status === 'unavailable') return false;
+    if (status === 'instock' || status === 'in_stock' || status === 'available') return true;
+    if (typeof x.stockLevel === 'number') return x.stockLevel > 0;
+    return null; // payload says nothing about stock: treat as available (v1 behaviour)
+  }
+  // Pure helper used by Smart Filter mode: is this listing-card text unavailable?
+  function cromaUnavailableText(t) {
+    const s = String(t || '').toLowerCase();
+    return s.indexOf('currently unavailable') >= 0 || s.indexOf('out of stock') >= 0 || s.indexOf('not available') >= 0;
+  }
   function normalise(x, cat) {
-    const sell = price(x.price && x.price.value), mrp0 = price(x.mrp && x.mrp.value);
-    if (!x.name || !sell) return null;
+    if (!x || typeof x !== 'object') return null;
+    const title = x.name || x.title;
+    const sell = price(pv(x.price)), mrp0 = price(pv(x.mrp));
+    if (!title || !sell) return null;
     const mrp = mrp0 < sell ? sell : mrp0;
-    return { id: String(x.code), title: String(x.name), brand: String(x.manufacturer || guessBrand(x.name)), price: sell, mrp,
-      disc: mrp > sell ? Math.round((mrp - sell) / mrp * 100) : 0, save: mrp - sell,
-      img: x.plpImage || '', url: x.url ? 'https://www.croma.com' + x.url : '', inStock: true, cat };
+    const id = x.code || x.productCode || x.id;
+    if (!id) return null;
+    const imgRaw = x.plpImage || (x.images && x.images[0] && (x.images[0].url || x.images[0].src)) || x.image || '';
+    const img = String(imgRaw).indexOf('/') === 0 ? 'https://www.croma.com' + imgRaw : String(imgRaw).replace(/^http:/, 'https:');
+    const rawUrl = x.url || x.productUrl || '';
+    const url = rawUrl ? (String(rawUrl).indexOf('http') === 0 ? String(rawUrl) : 'https://www.croma.com' + (String(rawUrl).indexOf('/') === 0 ? rawUrl : '/' + rawUrl)) : '';
+    const stock = cromaStock(x);
+    return { id: String(id), title: String(title), brand: String(x.manufacturer || x.brand || guessBrand(title)), price: sell, mrp,
+      disc: mrp > sell ? Math.round((mrp - sell) / mrp * 100) : 0, save: mrp - sell, img, url,
+      inStock: stock !== false, cat };
   }
   async function fetchPage(job, page, ctl) {
-    const url = 'https://api.croma.com/searchservices/v1/category/' + job.code + '?currentPage=' + (page - 1) + '&query=' + encodeURIComponent(':discount-desc') + '&fields=FULL&channel=WEB&channelCode=' + encodeURIComponent(cromaPin());
-    let lastErr;
-    for (let a = 0; a < 3; a++) {
-      if (ctl.stop) throw new Error('stopped');
-      try {
-        const r = await W.fetch(url, { headers: { accept: 'application/json' } });
-        if (r.status === 429 || r.status >= 500) throw new Error('HTTP ' + r.status);
-        if (!r.ok) return Object.assign([], { more: false });
-        const j = await r.json(), pg = j.pagination || {};
-        const items = (j.products || []).map(x => normalise(x, job.g.name)).filter(Boolean);
-        items.more = pg.totalPages ? page < pg.totalPages : items.length > 0;
-        return items;
-      } catch (e) { lastErr = e; await sleep(800 * (a + 1)); }
+    const pins = cromaPins();
+    let lastErr, lastItems = null;
+    for (const pin of pins) {
+      const url = 'https://api.croma.com/searchservices/v1/category/' + job.code + '?currentPage=' + (page - 1) + '&query=' + encodeURIComponent(':discount-desc') + '&fields=FULL&channel=WEB&channelCode=' + encodeURIComponent(pin);
+      for (let att = 0; att < 3; att++) {
+        if (ctl.stop) throw new Error('stopped');
+        try {
+          const r = await W.fetch(url, { headers: { accept: 'application/json' } });
+          if (r.status === 429 || r.status >= 500) throw new Error('HTTP ' + r.status);
+          if (r.status === 401 || r.status === 403) return Object.assign([], { more: false, diag: 'auth' });
+          if (r.status === 429) return Object.assign([], { more: false, diag: 'rate' });
+          if (!r.ok) return Object.assign([], { more: false });
+          const j = await r.json(), pg = j.pagination || {};
+          const raw = j.products || j.results || (j.data && j.data.products) || [];
+          const items = raw.map(x => normalise(x, job.g.name)).filter(Boolean);
+          const totalPages = pg.totalPages || (pg.totalResults && pg.pageSize ? Math.ceil(pg.totalResults / pg.pageSize) : 0);
+          items.more = totalPages ? page < totalPages : raw.length > 0;
+          if (items.length) return items;
+          lastItems = items;
+          break; // empty for this pincode: try the next one
+        } catch (e) { lastErr = e; await sleep(900 * Math.pow(2, att)); }
+      }
     }
+    if (lastItems) return lastItems;
     throw lastErr;
+  }
+  // ── Smart Filter mode ─────────────────────────────────────────────
+  // Runs on the Croma listing page behind the Hunter panel: hides cards
+  // marked unavailable and keeps loading more results as you scroll.
+  // It pauses auto-loading for 1s after any mouse move, so using the
+  // Sort menu does not get interrupted. Own implementation of the
+  // hide-unavailable + continuous-scroll idea; toggle from the sidebar.
+  let smartTimer = null, smartLastMove = 0;
+  function smartMouseMove() { smartLastMove = Date.now(); }
+  function smartFilterTick() {
+    const list = document.querySelector('#product-list-back');
+    if (list) {
+      Array.from(list.children).forEach(cardEl => {
+        if (cardEl.querySelector && (cardEl.querySelector('.not-available-text') || cromaUnavailableText(cardEl.textContent))) cardEl.remove();
+      });
+    } else {
+      document.querySelectorAll('.not-available-text').forEach(el => {
+        const cardEl = el.closest('li') || el.parentElement;
+        if (cardEl && cardEl.remove) cardEl.remove();
+      });
+    }
+    if (Date.now() - smartLastMove < 1000) return; // smart pause while sorting
+    const btn = document.querySelector('div.view-more-div > button');
+    if (btn && btn.style.display !== 'none' && !btn.disabled) btn.click();
+  }
+  function smartFilterBadge(on) {
+    const old = document.getElementById('croma-smart-filter-badge');
+    if (old) old.remove();
+    if (!on) return;
+    const badge = document.createElement('div');
+    badge.id = 'croma-smart-filter-badge';
+    badge.style.cssText = 'position:fixed;bottom:80px;right:10px;background:#00a37a;color:#fff;padding:8px 12px;border-radius:30px;font-family:sans-serif;font-weight:700;z-index:2147483646;box-shadow:0 4px 10px rgba(0,0,0,.3);font-size:12px;display:flex;align-items:center;gap:10px;cursor:pointer;';
+    badge.textContent = 'Smart filter: ON — tap to pause';
+    badge.title = 'Hiding unavailable items and auto-loading more. Tap to pause, X in the panel to stop.';
+    badge.addEventListener('click', () => { stopSmartFilter(); render(); });
+    document.body.appendChild(badge);
+  }
+  function startSmartFilter() {
+    if (smartTimer) return true;
+    if (document.getElementById('croma-smart-filter-badge')) return true;
+    smartLastMove = Date.now();
+    document.addEventListener('mousemove', smartMouseMove);
+    smartTimer = setInterval(smartFilterTick, 1500);
+    smartFilterTick();
+    smartFilterBadge(true);
+    store.smartFilter = true; save();
+    return true;
+  }
+  function stopSmartFilter() {
+    if (smartTimer) { clearInterval(smartTimer); smartTimer = null; }
+    document.removeEventListener('mousemove', smartMouseMove);
+    smartFilterBadge(false);
+    store.smartFilter = false; save();
+    return true;
   }
   const P = {
     key: 'crm_v1', hostRe: /(^|\.)croma\.com$/,
-    defaults: { groups: ['c997', 'c10', 'c20'], depth: 2 },
+    defaults: { groups: ['c997', 'c10', 'c20'], depth: 3 },
     workers: 3,
     jobs: st => { const jobs = []; for (const g of GROUPS) if (st.groups.includes(g.id)) jobs.push({ g, name: g.name, code: g.subs[0][0] }); return jobs; },
     fetchPage,
     noLocation: () => false, noLocMsg: '',
     locCheck: () => true,
-    locUI: () => `<div class="row" style="margin-bottom:6px"><span>Pincode</span><b>${esc(cromaPin())}</b></div>`,
-    locInput: () => false
+    locUI: (st, esc) => `<div class="row" style="margin-bottom:6px"><span>Pincode</span><b>${esc(cromaPin())}</b></div><input class="fld" data-in="pin" placeholder="Extra pincode(s), comma-separated" value="${esc(st.pin || '')}" autocomplete="off" inputmode="numeric">`,
+    locInput: (k, v) => { if (k === 'pin') { store.pin = String(v).replace(/[^0-9, ]/g, ''); save(); return true; } return false; }
   };
   // Live data can only be read from the store's own site, inside your logged-in tab.
   const OFFSITE = !P.hostRe.test(location.hostname);
@@ -85,7 +194,8 @@
   const KEY = P.key;
   const defaults = Object.assign({
     theme: 'auto', view: 'grid', sort: 'score', minDisc: 30, maxPrice: 0, depth: 3,
-    stockOnly: true, favs: [], hidden: [], list: {}, prices: {}, lastScan: 0
+    stockOnly: true, favs: [], hidden: [], list: {}, prices: {}, lastScan: 0,
+    smartFilter: false, pin: ''
   }, P.defaults);
   let store;
   try { store = Object.assign({}, defaults, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { store = Object.assign({}, defaults); }
@@ -98,7 +208,7 @@
 
   // ───────────────────────── State ─────────────────────────
   const S = { products: new Map(), scanning: false, done: 0, total: 0, errors: 0, ctl: { stop: false },
-    q: '', brand: '', cat: '', preset: '', pick: false, tgm: false, favOnly: false, newOnly: false, shown: 60, tab: 'best', panel: false, startedAt: 0 };
+    q: '', brand: '', cat: '', preset: '', pick: false, tgm: false, favOnly: false, newOnly: false, shown: 60, tab: 'best', panel: false, startedAt: 0, scannedOnce: false, diag: null, selfTest: null };
 
   // ───────────────────────── Scanner ─────────────────────────
   async function scan() {
@@ -108,18 +218,32 @@
     const jobs = P.jobs(store);
     if (!jobs.length) { toast('Pick at least one category'); return; }
     S.scanning = true; S.ctl = { stop: false }; S.done = 0; S.errors = 0; S.total = jobs.length; S.startedAt = Date.now();
+    S.diag = { errors: [], emptyJobs: 0, totalJobs: jobs.length, rateLimited: false, auth: false }; S.scannedOnce = true;
     S.products.clear(); S.shown = 60; render();
     const ctl = S.ctl, queue = jobs.slice();
     const runJob = async job => {
+      let jobEmpty = true;
       try {
         for (let page = 1; page <= store.depth && !ctl.stop; page++) {
           const items = await P.fetchPage(job, page, ctl);
+          if (items.length) jobEmpty = false;
+          if (items.diag === 'auth') S.diag.auth = true;
+          if (items.diag === 'rate') S.diag.rateLimited = true;
           const fresh = ingest(items);
           scheduleRender();
           // Stop on the last page, or when a page adds nothing and does not promise more.
           if (items.more === false || (!fresh && items.more !== true)) break;
         }
-      } catch (e) { if (!ctl.stop) S.errors++; }
+      } catch (e) {
+        if (!ctl.stop) {
+          S.errors++;
+          const m = String((e && e.message) || e);
+          S.diag.errors.push(job.name + ': ' + m);
+          if (/429|rate limit/i.test(m)) S.diag.rateLimited = true;
+          if (/401|403|signed out|session/i.test(m)) S.diag.auth = true;
+        }
+      }
+      if (jobEmpty) S.diag.emptyJobs++;
       S.done++; scheduleRender();
     };
     // The first request finds the right data centre; then the workers run in parallel.
@@ -131,7 +255,53 @@
     store.lastScan = Date.now(); save(); render();
     notify();
     if (P.noLocation() && !S.products.size) { toast(P.noLocMsg); return; }
+    if (!S.products.size && !ctl.stop) { toast('No deals found — check your pincode on croma.com, lower Min discount, or try another category.'); return; }
     toast(ctl.stop ? 'Scan stopped' : `Scan complete · ${S.products.size} products` + (S.errors ? ` · ${S.errors} failed` : ''));
+  }
+
+  // ── v2 diagnostics + self-test ────────────────────────────────────
+  // Pure: why did a scan return 0 results? diag = {errors, emptyJobs,
+  // totalJobs, rateLimited, auth}; opts = {platform, pincodeSaved}.
+  function diagnoseEmpty(diag, opts) {
+    opts = opts || {};
+    const out = [];
+    if (!diag) return out;
+    if (diag.auth) out.push('The store refused the request (signed out or session expired) — reload ' + (opts.platform || 'the store') + ' and scan again.');
+    if (diag.rateLimited) out.push('Rate-limited by the store (too many requests) — wait a few minutes before scanning again.');
+    if (diag.errors && diag.errors.length) out.push(diag.errors.length + ' categor' + (diag.errors.length === 1 ? 'y' : 'ies') + ' failed to load: ' + diag.errors.slice(0, 3).join('; ') + (diag.errors.length > 3 ? '…' : ''));
+    if (diag.emptyJobs && diag.emptyJobs === diag.totalJobs) out.push('Every category came back empty — the categories may genuinely have no deals at this discount, or the store is showing a different location.');
+    if (opts.pincodeSaved === false) out.push('No pincode is saved on the store — set your delivery pincode on the store first, then scan again.');
+    if (!out.length) out.push('No deals matched at the current minimum discount — lower Min discount in the menu or pick more categories.');
+    return out;
+  }
+  function diagView() {
+    const reasons = diagnoseEmpty(S.diag, { platform: PLATFORM, pincodeSaved: typeof cromaPinSaved === 'function' ? cromaPinSaved() : undefined });
+    const st = S.selfTest;
+    return `<div class="check"><h3>No deals found — here is why</h3>${reasons.map(r => `<div class="ck no"><span>${ic('info', 15)}</span><div><b>${esc(r)}</b></div></div>`).join('')}${st ? `<div class="ck ${st.pass ? 'ok' : 'no'}"><span>${ic(st.pass ? 'check' : 'x', 15)}</span><div><b>Self-test: ${st.pass ? 'PASS' : 'FAIL'} — ${esc(st.summary)}</b><p>${esc(st.detail)}</p></div></div>` : ''}<button class="btn" data-act="scan" style="margin-top:16px">${ic('scan')}Scan again</button><button class="btn ghost full" data-act="selftest" style="margin-top:8px">Run self-test</button></div>`;
+  }
+  // Built-in self-test: runs the parser on small inline samples (no
+  // network) and reports PASS/FAIL. Same checks run offline as
+  // node test-results-tab.js.
+  function runSelfTest() {
+    const lines = [];
+    let pass = 0, total = 0;
+    const check = (name, ok) => { total++; if (ok) pass++; lines.push((ok ? '✓ ' : '✗ ') + name); };
+    try {
+      const samples = [
+        { code: 'T1', name: 'Self-Test TV', manufacturer: 'Test', price: { value: 19999 }, mrp: { value: 39999 }, plpImage: '/media/t1.jpg', url: '/self-test-tv/p/T1', stock: { stockLevelStatus: 'inStock' } },
+        { code: 'T2', name: 'Self-Test Phone', manufacturer: 'Test', price: 17999, mrp: '₹35,999', plpImage: 'https://example.com/t2.jpg', url: '/self-test-phone/p/T2', stock: { stockLevelStatus: 'outOfStock' } }
+      ];
+      const parsed = samples.map(x => normalise(x, 'Self-test')).filter(Boolean);
+      check('API items parse (' + parsed.length + '/2)', parsed.length === 2);
+      check('discount recomputed (50%)', parsed[0] && parsed[0].disc === 50);
+      check('relative image URL built', parsed[0] && parsed[0].img === 'https://www.croma.com/media/t1.jpg');
+      check('out-of-stock signal honoured', parsed[1] && parsed[1].inStock === false);
+      check('smart-filter helper', cromaUnavailableText('Currently Unavailable') === true && cromaUnavailableText('In Stock') === false);
+    } catch (e) { lines.push('✗ self-test threw: ' + e.message); }
+    S.selfTest = { pass: pass === total, summary: pass + '/' + total + ' checks passed', detail: lines.join(' · ') };
+    toast(S.selfTest.pass ? 'Self-test PASS: ' + S.selfTest.summary : 'Self-test FAIL: ' + S.selfTest.summary);
+    render();
+    return S.selfTest;
   }
 
   // ───────────────────────── Filtering ─────────────────────────
@@ -496,13 +666,17 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     return `<aside class="${sideOpen ? 'open' : ''}">
  <div class="mob" style="gap:8px;flex-wrap:wrap"><button class="chip" data-act="theme">${ic('moon', 14)}Theme</button><button class="chip" data-act="tgopen">${ic('send', 14)}Telegram ${store.tg.on && tgReady() ? 'on' : 'off'}</button><button class="chip" data-act="side">${ic('x', 14)}Close menu</button></div>
  ${typeof captureUI === 'function' && !OFFSITE ? captureUI() : scanUI()}
+ <div><h4>${ic('eyeoff', 15)}Smart filter</h4>
+  <label class="sw"><input type="checkbox" data-in="smartFilter" ${store.smartFilter ? 'checked' : ''}> Hide unavailable + auto-load more</label>
+  <p class="note" style="margin-top:6px">Runs on the Croma listing page behind this panel: hides “Currently Unavailable” cards and keeps loading more as you scroll. Pauses while you use menus.</p>
+  <div class="chips" style="margin-top:8px"><button class="chip" data-act="smartfilter">${store.smartFilter ? 'Stop smart filter' : 'Start smart filter'}</button></div></div>
  <div><h4>${ic('sliders', 15)}Filters</h4>
   <label class="row"><span>Min discount</span><b>${store.minDisc}%</b></label><input type="range" min="0" max="90" step="5" value="${store.minDisc}" data-in="minDisc">
   <label class="row" style="margin-top:14px"><span>Max price</span><b>${store.maxPrice ? $inr(store.maxPrice) : 'Any'}</b></label><input type="range" min="0" max="2000" step="50" value="${store.maxPrice}" data-in="maxPrice">
   <label class="sw" style="margin-top:16px"><input type="checkbox" data-in="stockOnly" ${store.stockOnly ? 'checked' : ''}> In stock only</label>
   <label class="sw" style="margin-top:10px"><input type="checkbox" data-in="favOnly" ${S.favOnly ? 'checked' : ''}> Saved only</label>
   <label class="sw" style="margin-top:10px"><input type="checkbox" data-in="newOnly" ${S.newOnly ? 'checked' : ''}> New or price dropped</label></div>
- <div><h4>${ic('download', 15)}Export</h4><div class="chips"><button class="chip" data-act="csv">${ic('download', 14)}CSV</button><button class="chip" data-act="copyall">${ic('copy', 14)}Copy top 20</button><button class="chip" data-act="unhide">${ic('eyeoff', 14)}Unhide (${store.hidden.length})</button></div>
+ <div><h4>${ic('download', 15)}Export</h4><div class="chips"><button class="chip" data-act="csv">${ic('download', 14)}CSV</button><button class="chip" data-act="json">${ic('download', 14)}JSON</button><button class="chip" data-act="selftest">${ic('check', 14)}Self-test</button><button class="chip" data-act="copyall">${ic('copy', 14)}Copy top 20</button><button class="chip" data-act="unhide">${ic('eyeoff', 14)}Unhide (${store.hidden.length})</button></div>
   <p class="note" style="margin-top:14px"><kbd>/</kbd> search &nbsp;<kbd>S</kbd> scan &nbsp;<kbd>Esc</kbd> close</p></div>
 </aside>`;
   }
@@ -557,7 +731,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
   }
   function mainView() {
     if (OFFSITE) return `<main id="main">${offsiteCard()}</main>`;
-    if (!S.products.size && !S.scanning) return `<main id="main">${checklist()}</main>`;
+    if (!S.products.size && !S.scanning) return `<main id="main">${S.scannedOnce ? diagView() : checklist()}</main>`;
     const list = filtered();
     const tabs = [['best', 'Best deals'], ['all', 'All deals'], ['saved', 'Saved' + (store.favs.length ? ' · ' + store.favs.length : '')]];
     const head = `<div class="tabs">${tabs.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}${S.scanning ? `<span class="live">${ic('scan', 14)}Scanning ${S.done}/${S.total}</span>` : ''}</div>`;
@@ -617,6 +791,10 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
   async function copy(text, msg) {
     try { await navigator.clipboard.writeText(text); toast(msg || 'Copied'); }
     catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast(msg || 'Copied'); }
+  }
+  // JSON export of the currently filtered deals (CSV already exists).
+  function jsonExport(list) {
+    return JSON.stringify(list.map(p => ({ title: p.title, brand: p.brand, category: p.cat, price: p.price, mrp: p.mrp, discount: p.disc, saving: p.save, inStock: p.inStock, url: p.url })), null, 2);
   }
   function listText() {
     const lines = Object.entries(store.list).map(([id, q]) => { const p = S.products.get(id) || (store._cache && store._cache[id]); return p ? `- ${p.title} x${q}: ${$inr(p.price * q)}${p.url ? '\n  ' + p.url : ''}` : null; }).filter(Boolean);
@@ -706,6 +884,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
       if (k === 'tgOn' && v && !tgReady()) toast('Add your bot token and chat ID too');
       return;
     }
+    if (k === 'smartFilter') { if (v) startSmartFilter(); else stopSmartFilter(); render(); return; }
     if (k === 'stockOnly') { store.stockOnly = v; save(); }
     else if (k === 'sort') { store.sort = v; save(); }
     else if (k === 'favOnly') S.favOnly = v; else if (k === 'newOnly') S.newOnly = v;
@@ -734,6 +913,8 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
       case 'tgtest': tgTest(); break;
       case 'bell': case 'tgopen': sideOpen = false; S.pick = false; S.tgm = true; render(); break;
       case 'tgclose': S.tgm = false; render(); break;
+      case 'smartfilter': if (store.smartFilter) stopSmartFilter(); else startSmartFilter(); render(); break;
+      case 'selftest': runSelfTest(); break;
       case 'view': store.view = el.dataset.v; save(); render(); break;
       case 'more': S.shown += 60; render(); break;
       case 'fav':
@@ -756,6 +937,9 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
         const rows = [['Title', 'Brand', 'Category', 'Price', 'MRP', 'Discount %', 'Saving', 'In stock', 'URL']].concat(filtered().map(p => [p.title, p.brand, p.cat, p.price, p.mrp, p.disc, p.save, p.inStock, p.url]));
         const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
         const a2 = document.createElement('a'); a2.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a2.download = 'croma-deals.csv'; a2.click(); toast('CSV downloaded'); break;
+      }
+      case 'json': {
+        const a3 = document.createElement('a'); a3.href = URL.createObjectURL(new Blob([jsonExport(filtered())], { type: 'application/json' })); a3.download = 'croma-deals.json'; a3.click(); toast('JSON downloaded'); break;
       }
     }
   });
@@ -810,9 +994,11 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     hide() { host.style.display = 'none'; document.documentElement.style.overflow = prevOverflow; updateFab(); placeFab(); fab.style.display = 'block'; },
     toggle() { host.style.display === 'none' ? api.show() : api.hide(); }
   };
+  api.smartFilter = () => (store.smartFilter ? stopSmartFilter() : startSmartFilter());
   window.__CRM__ = api;
   document.body.appendChild(host);
   document.body.appendChild(fab);
   api.show();
+  if (store.smartFilter && !OFFSITE) { try { setTimeout(startSmartFilter, 600); } catch (e) { /* listing not ready yet */ } }
   if (typeof P !== 'undefined' && P.install && !OFFSITE) P.install(ingest);
 })();
