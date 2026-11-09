@@ -1,6 +1,7 @@
 # Changelog
 
 ## v2.0.0 — 2026-11-08
+- Fixed (2026-11-09): install button now reads “Croma Deals” instead of the generic “PriceDrop Hunter”, so the dragged bookmark is named after this store instead of colliding with every other tool.
 
 - Fetch + parse rewritten: `api.croma.com` category search kept; `results` / `data.products` response shapes and `totalResults`/`pageSize` page counts now handled.
 - Parser accepts price/MRP as `{value}` objects, numbers or formatted strings, and `plpImage`/`images[0]` image shapes; discount always recomputed from price vs MRP.
