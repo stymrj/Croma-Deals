@@ -1,0 +1,223 @@
+{
+  "products": [
+    {
+      "id": "C1",
+      "code": "C1",
+      "name": "C1 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 5999
+      },
+      "mrp": {
+        "value": 39999
+      },
+      "plpImage": "",
+      "url": "/c1/p/C1",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 85,
+      "expectedInStock": true
+    },
+    {
+      "id": "C2",
+      "code": "C2",
+      "name": "C2 TV",
+      "manufacturer": "T",
+      "price": "₹3,999",
+      "mrp": "₹39,999",
+      "plpImage": "",
+      "url": "/c2/p/C2",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 90,
+      "expectedInStock": true
+    },
+    {
+      "id": "C3",
+      "code": "C3",
+      "name": "C3 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 1999
+      },
+      "discount": 95,
+      "plpImage": "",
+      "url": "/c3/p/C3",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 95,
+      "expectedInStock": true
+    },
+    {
+      "id": "C4",
+      "code": "C4",
+      "name": "C4 TV",
+      "manufacturer": "T",
+      "price": 3999,
+      "discount": "90.5",
+      "plpImage": "",
+      "url": "/c4/p/C4",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 91,
+      "expectedInStock": true
+    },
+    {
+      "id": "C5",
+      "code": "C5",
+      "name": "C5 TV",
+      "manufacturer": "T",
+      "price": {
+        "min": 1999,
+        "max": 9999
+      },
+      "mrp": {
+        "value": 39999
+      },
+      "plpImage": "",
+      "url": "/c5/p/C5",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 95,
+      "expectedInStock": true
+    },
+    {
+      "id": "C6",
+      "code": "C6",
+      "name": "C6 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 1999
+      },
+      "wasPrice": {
+        "value": 39999
+      },
+      "plpImage": "",
+      "url": "/c6/p/C6",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 95,
+      "expectedInStock": true
+    },
+    {
+      "id": "C7",
+      "code": "C7",
+      "name": "C7 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 0,
+        "formattedValue": "₹1,999"
+      },
+      "mrp": {
+        "value": 39999
+      },
+      "plpImage": "",
+      "url": "/c7/p/C7",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 95,
+      "expectedInStock": true
+    },
+    {
+      "id": "C8",
+      "code": "C8",
+      "name": "C8 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 1999
+      },
+      "mrp": {
+        "value": 39999
+      },
+      "plpImage": "",
+      "url": "/c8/p/C8",
+      "stock": {
+        "stockLevelStatus": "lowStock"
+      },
+      "expectedDisc": 95,
+      "expectedInStock": true
+    },
+    {
+      "id": "C9",
+      "code": "C9",
+      "name": "C9 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 1999
+      },
+      "mrp": {
+        "value": 39999
+      },
+      "plpImage": "",
+      "url": "/c9/p/C9",
+      "stock": {
+        "stockLevelStatus": "outOfStock"
+      },
+      "expectedDisc": 95,
+      "expectedInStock": false
+    },
+    {
+      "id": "C10",
+      "code": "C10",
+      "name": "C10 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 1999
+      },
+      "mrp": {
+        "min": 19999,
+        "max": 39999
+      },
+      "plpImage": "",
+      "url": "/c10/p/C10",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 95,
+      "expectedInStock": true
+    },
+    {
+      "id": "C11",
+      "code": "C11",
+      "name": "C11 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 1999
+      },
+      "mrp": {
+        "value": null,
+        "formattedValue": "₹39,999"
+      },
+      "plpImage": "",
+      "url": "/c11/p/C11",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 95,
+      "expectedInStock": true
+    },
+    {
+      "id": "C12",
+      "code": "C12",
+      "name": "C12 TV",
+      "manufacturer": "T",
+      "price": {
+        "value": 1999
+      },
+      "plpImage": "",
+      "url": "/c12/p/C12",
+      "stock": {
+        "stockLevelStatus": "inStock"
+      },
+      "expectedDisc": 0,
+      "expectedInStock": true
+    }
+  ]
+}
