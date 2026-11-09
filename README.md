@@ -36,6 +36,9 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 - One-tap presets: under ₹99, 50% off, save ₹100+, price drops, lowest ever, best value
 - A setup checklist on first open
 - Filters: search, category, brand, maximum price, minimum discount, stock, saved items
+- In-stock-only is on by default; turn it off to see out-of-stock items, labelled as such
+- Built-in self-test (sidebar → Self-test) checks the parser on samples, no network needed
+- Empty-scan diagnostics say why nothing matched (signed out, rate-limited, failed categories, no pincode saved)
 - Shopping list with quantities, total and total savings
 - CSV export and copy-to-share text
 - Grid and list views, light and dark themes, keyboard shortcuts
@@ -50,13 +53,13 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 
 **Bookmarklet (desktop).** Run `node build.js`, open `index.html`, and drag the **Croma Deals** button to your bookmarks bar. Open croma.com and click the bookmark.
 
-**Bookmarklet (mobile).** On the install page, tap **Copy mobile loader**. It is a bookmark of about 380 characters that loads the latest version from GitHub Pages, so it fits on any phone. Create a bookmark named **Croma Deals**, paste it as the address, and run it from the address bar on croma.com. The full bookmarklet (about 45 KB, no network needed) is in `dist/bookmarklet.txt`.
+**Bookmarklet (mobile).** On the install page, tap **Copy mobile loader**. Croma blocks loading code from other sites, so this copies the full code (about 62 KB) instead of a short loader — paste it as a bookmark address. It works in Chrome on Android; if your phone cuts it short, use the userscript. The full bookmarklet (about 62 KB, no network needed) is in `dist/bookmarklet.txt`.
 
 **Userscript.** Install `dist/croma-deals.user.js` in Tampermonkey or Violentmonkey. A small Deals button appears on every croma.com page.
 
 ## Use
 
-Pick categories in the scan picker, press Scan, and browse Best deals / All deals / Saved. Heart a deal to save it, Add to list to build a shopping list, and use the presets (under ₹99, 50% off, save ₹100+) for one-tap filtering.
+Pick categories in the scan picker, press Scan, and browse Best deals / All deals / Saved. Heart a deal to save it, Add to list to build a shopping list, and use the presets (under ₹99, 50% off, save ₹100+) for one-tap filtering. Press **Self-test** in the sidebar any time to check the parser without scanning.
  Smart Filter mode (Croma only): open a Croma category/search page, open Hunter, and switch on "Hide unavailable + auto-load more" in the sidebar — unavailable cards disappear and more results keep loading as you scroll.
 
 ## Keyboard shortcuts
@@ -76,7 +79,7 @@ Each deal is sent once, and again only if its price drops further. Use the users
 
 ## Bot setup (Telegram alerts, v2)
 
-A minimal scheduled Node bot lives in `bot/` (no dependencies, Node 18+). It scans the same categories with the same `api.croma.com` endpoint and your pincode, and sends new deals, price drops and restocks to Telegram. It does not include Smart Filter mode (that only makes sense in a browser).
+A minimal scheduled Node bot lives in `bot/` (no dependencies, Node 18+). It scans the categories in `bot/config.json` (8 categories, 60% off by default, 2 pages per category) with the same `api.croma.com` endpoint and your pincode, and sends new deals, price drops and restocks to Telegram. The schedule runs on GitHub Actions — see Telegram bot (GitHub Actions) below. It does not include Smart Filter mode (that only makes sense in a browser).
 
 ```bash
 cp .env.example .env   # fill in TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, CROMA_PINCODE
@@ -86,22 +89,40 @@ node bot/run.js             # live run
 
 Get the token from `@BotFather` (`/newbot`) and the chat ID from `@userinfobot`. The bot needs your own token — nothing is pre-configured. State is kept in `data/state.json` (created on first run).
 
+## Telegram bot (GitHub Actions)
+
+Hunter can also run on its own, without a browser, on GitHub Actions. Every 30 minutes (08:31–00:01 IST) it scans Croma, compares with the previous run (kept in `data/state.json`), and sends what changed to Telegram: a morning catalogue, new deals, price drops, and back-in-stock items. Identical prices are not re-sent.
+
+1. Fork [github.com/stymrj/Croma-Deals](https://github.com/stymrj/Croma-Deals).
+2. Create a bot with `@BotFather` (`TELEGRAM_BOT_TOKEN`) and get your chat ID from `@userinfobot` (`TELEGRAM_CHAT_ID`).
+3. In your fork, add those two as **Secrets**, set the **Variable** `CROMA_PINCODE` (optional; default `400049`), and set the **Variable** `BOT_ENABLED` = `true`.
+4. In **Actions**, enable workflows, run **Telegram deal alerts** with **Print the messages instead of sending them** ticked to preview, then run it again for real.
+
+Optional variables: `MIN_DISCOUNT` (default 60), `THRESHOLDS` (e.g. `c10=50,c997=55`), `GROUPS` (e.g. `c997,c10,c20`), `PAGES` (1–5, default 2), `DIGEST_HOUR_IST` (default 9), `MAX_WORKERS` (default 3), `MAX_ALERTS` (default 40), `RUNNER` (`self-hosted` if GitHub's IPs get blocked). Groups and thresholds live in `bot/config.json`.
+
+Local run: `cp .env.example .env`, then `node bot/run.js --dry-run` (prints, sends nothing) or `node bot/run.js`. Node 18+, no `npm install` needed.
+
 ## How it gets data
 
 Uses Croma's own search API with the pincode Croma saved for you, sorted by discount. Smart Filter mode (see below) works separately on the listing page's own DOM.
 
 ## Troubleshooting
 
-- **Blank results / "No deals found":** check your pincode is set on croma.com (Hunter shows it in the menu), lower Min discount, or try another category. The API is undocumented and can change.
+- **Blank results / "No deals found":** read the "No deals found — here is why" message — it names the cause. Check your pincode is set on croma.com (Hunter shows it in the menu), lower Min discount, or try another category. The API is undocumented and can change.
+- **Rate-limited:** the store throttled the scan ("Rate-limited by the store") — wait a few minutes before scanning again. The bot retries 429/503 responses, then stops that run.
 - **Everything looks out of stock:** Smart Filter hides unavailable cards on the listing page; in the deals finder, turn off "In stock only" to see them.
 - **Smart Filter does nothing:** it only runs on a Croma listing/search page (not inside the Hunter panel). Open a category page, then start it from the sidebar. If Croma changed its page markup (product list id / Load More button), it will need updating — see `smartFilterTick` in `src/deals.js`.
 - **Login / location:** set your pincode on croma.com first; Hunter reads the one Croma saved for you (default 400049 if none is saved).
+- **Bot sends nothing on schedule:** scheduled runs start only after the repository variable `BOT_ENABLED` is `true`. A manual run from Actions always runs — tick the dry-run box to preview without sending.
+- **Bot logs "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set":** add both as repository Secrets (Settings → Secrets and variables → Actions).
+- **Bot fails with "Croma refused the request (HTTP 403)":** Croma blocked the request for that run; the run stops and exits non-zero if nothing was found, and the next scheduled run retries. If it keeps happening, run the bot on a self-hosted runner (`RUNNER` variable) or locally.
 
 ## Testing
 
 ```bash
 node --check src/deals.js
 node --check bot/platform.js bot/core.js bot/run.js
+python3 -c "import yaml; yaml.safe_load(open('.github/workflows/telegram-bot.yml'))"   # workflow parses
 node test-results-tab.js   # regression test: sample payload -> parser -> cards
 node build.js              # rebuild dist/ and index.html
 ```
@@ -122,6 +143,8 @@ src/deals.js         the app (one file, no dependencies)
 src/index.tpl.html   install page template
 build.js             builds dist/ and index.html
 bot/                 Telegram bot (Node, no dependencies)
+.github/workflows/   telegram-bot.yml (every 30 minutes, 08:31–00:01 IST)
+.env.example         settings for local bot runs
 test-results-tab.js  regression test: sample payload -> parser -> cards
 fixtures/sample-api.json
 favicon.svg
