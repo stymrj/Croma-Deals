@@ -14,7 +14,14 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const debounce = (f, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
 
-  const price = v => { if (v == null) return 0; if (typeof v === 'number') return v; const m = String(v).replace(/,/g, '').match(/\d+(\.\d+)?/); return m ? +m[0] : 0; };
+  // Prices arrive as numbers, formatted strings ("₹35,999"), or objects
+  // ({value}, {value, formattedValue}, {min,max} ranges). An object used
+  // to stringify to "[object Object]", match no digits, and parse as ₹0,
+  // so the item was dropped in normalise() — exactly the shape the
+  // deepest discounts come in. price() takes the selling (lowest) value
+  // of a range; priceHi() takes the highest value and is for MRP only.
+  const price = v => { if (v == null) return 0; if (typeof v === 'number') return v; if (typeof v === 'object') { for (const k of ['discountedPrice', 'value', 'amount', 'min', 'max', 'text', 'defaultValue']) { const p = price(v[k]); if (p > 0) return p; } return 0; } const m = String(v).replace(/,/g, '').match(/\d+(\.\d+)?/); return m ? +m[0] : 0; };
+  const priceHi = v => { if (v == null) return 0; if (typeof v === 'number') return v; if (typeof v === 'object') { for (const k of ['value', 'amount', 'max', 'mrp', 'discountedPrice', 'min', 'text', 'defaultValue']) { const p = priceHi(v[k]); if (p > 0) return p; } return 0; } const m = String(v).replace(/,/g, '').match(/\d+(\.\d+)?/); return m ? +m[0] : 0; };
   const guessBrand = t => (String(t).trim().split(/\s+/)[0] || '').replace(/[^\w&'-]/g, '');
   const EXCLUDED = [];
   const allowed = p => { const t = p.title.toLowerCase(); return !EXCLUDED.some(k => t.includes(k)); };
@@ -58,10 +65,20 @@
   // strings; stock as stockLevelStatus / stockStatus / availability flags.
   // normalise() accepts every shape, recomputes the discount from price vs
   // MRP, and only marks a product out of stock when the payload actually
-  // says so (previously every product was treated as available). Items are
-  // NOT dropped here for being below the user's minimum discount: that
-  // filter lives in filtered(), so the discount selection is preserved.
-  const pv = v => (v && typeof v === 'object' ? (v.value != null ? v.value : v.formattedValue) : v);
+  // says so (previously every product was treated as available). When no
+  // usable MRP exists at all (missing, or a range/zero object that parsed
+  // as ₹0), the struck-through price is read from wasPrice /
+  // strikeThroughPrice / oldPrice, and failing that the payload's own
+  // discount percentage (number, float or string) is used with the MRP
+  // back-computed from it — otherwise the item came out as 0% off and the
+  // minimum-discount filter silently hid the deepest cuts. A {value: 0}
+  // price no longer wins over a usable formattedValue. Items are NOT
+  // dropped here for being below the user's minimum discount: that filter
+  // lives in filtered(), so the discount selection is preserved.
+  // pv() unwraps a {value}/{formattedValue} object; anything else (a
+  // {min,max} range object, a plain value) passes through for price() /
+  // priceHi() to walk.
+  const pv = v => { if (!v || typeof v !== 'object') return v; if (v.value != null && price(v.value) > 0) return v.value; if (v.formattedValue != null && price(v.formattedValue) > 0) return v.formattedValue; return v; };
   function cromaStock(x) {
     const st = x.stock || {};
     // Explicit unavailable signals win over a generic 'inStock' status string.
@@ -82,9 +99,16 @@
   function normalise(x, cat) {
     if (!x || typeof x !== 'object') return null;
     const title = x.name || x.title;
-    const sell = price(pv(x.price)), mrp0 = price(pv(x.mrp));
+    const sell = price(pv(x.price));
+    const mrpRaw = x.mrp != null ? x.mrp : (x.wasPrice != null ? x.wasPrice : (x.strikeThroughPrice != null ? x.strikeThroughPrice : (x.oldPrice != null ? x.oldPrice : (x.price && x.price.mrp))));
+    const mrp0 = priceHi(pv(mrpRaw));
     if (!title || !sell) return null;
-    const mrp = mrp0 < sell ? sell : mrp0;
+    let mrp = sell, disc = 0;
+    if (mrp0 > sell) { mrp = mrp0; disc = Math.round((mrp - sell) / mrp * 100); }
+    else {
+      const pct = price(x.discount != null ? x.discount : (x.discountPercentage != null ? x.discountPercentage : x.discountPercent));
+      if (pct > 0 && pct < 100) { disc = Math.round(pct); mrp = Math.round(sell / (1 - disc / 100)); }
+    }
     const id = x.code || x.productCode || x.id;
     if (!id) return null;
     const imgRaw = x.plpImage || (x.images && x.images[0] && (x.images[0].url || x.images[0].src)) || x.image || '';
@@ -93,7 +117,7 @@
     const url = rawUrl ? (String(rawUrl).indexOf('http') === 0 ? String(rawUrl) : 'https://www.croma.com' + (String(rawUrl).indexOf('/') === 0 ? rawUrl : '/' + rawUrl)) : '';
     const stock = cromaStock(x);
     return { id: String(id), title: String(title), brand: String(x.manufacturer || x.brand || guessBrand(title)), price: sell, mrp,
-      disc: mrp > sell ? Math.round((mrp - sell) / mrp * 100) : 0, save: mrp - sell, img, url,
+      disc, save: mrp - sell, img, url,
       inStock: stock !== false, cat };
   }
   async function fetchPage(job, page, ctl) {
@@ -289,13 +313,19 @@
     try {
       const samples = [
         { code: 'T1', name: 'Self-Test TV', manufacturer: 'Test', price: { value: 19999 }, mrp: { value: 39999 }, plpImage: '/media/t1.jpg', url: '/self-test-tv/p/T1', stock: { stockLevelStatus: 'inStock' } },
-        { code: 'T2', name: 'Self-Test Phone', manufacturer: 'Test', price: 17999, mrp: '₹35,999', plpImage: 'https://example.com/t2.jpg', url: '/self-test-phone/p/T2', stock: { stockLevelStatus: 'outOfStock' } }
+        { code: 'T2', name: 'Self-Test Phone', manufacturer: 'Test', price: 17999, mrp: '₹35,999', plpImage: 'https://example.com/t2.jpg', url: '/self-test-phone/p/T2', stock: { stockLevelStatus: 'outOfStock' } },
+        { code: 'T3', name: 'Self-Test Max TV', manufacturer: 'Test', price: { value: 1999 }, discount: 95, plpImage: '/media/t3.jpg', url: '/self-test-max-tv/p/T3', stock: { stockLevelStatus: 'inStock' } },
+        { code: 'T4', name: 'Self-Test Was TV', manufacturer: 'Test', price: { value: 1999 }, wasPrice: { value: 39999 }, plpImage: '/media/t4.jpg', url: '/self-test-was-tv/p/T4', stock: { stockLevelStatus: 'inStock' } },
+        { code: 'T5', name: 'Self-Test Zero TV', manufacturer: 'Test', price: { value: 0, formattedValue: '₹1,999' }, mrp: { value: 39999 }, plpImage: '/media/t5.jpg', url: '/self-test-zero-tv/p/T5', stock: { stockLevelStatus: 'inStock' } }
       ];
       const parsed = samples.map(x => normalise(x, 'Self-test')).filter(Boolean);
-      check('API items parse (' + parsed.length + '/2)', parsed.length === 2);
+      check('API items parse (' + parsed.length + '/5)', parsed.length === 5);
       check('discount recomputed (50%)', parsed[0] && parsed[0].disc === 50);
       check('relative image URL built', parsed[0] && parsed[0].img === 'https://www.croma.com/media/t1.jpg');
       check('out-of-stock signal honoured', parsed[1] && parsed[1].inStock === false);
+      check('missing-MRP item keeps its 95% discount', parsed[2] && parsed[2].disc === 95);
+      check('wasPrice struck-through price used (95%)', parsed[3] && parsed[3].disc === 95);
+      check('zero-value price falls back to formattedValue (95%)', parsed[4] && parsed[4].disc === 95);
       check('smart-filter helper', cromaUnavailableText('Currently Unavailable') === true && cromaUnavailableText('In Stock') === false);
     } catch (e) { lines.push('✗ self-test threw: ' + e.message); }
     S.selfTest = { pass: pass === total, summary: pass + '/' + total + ' checks passed', detail: lines.join(' · ') };

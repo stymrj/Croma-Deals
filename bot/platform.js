@@ -3,9 +3,10 @@
 // Node 18+, no dependencies.
 'use strict';
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-const price = v => { if (v == null) return 0; if (typeof v === 'number') return v; const m = String(v).replace(/,/g, '').match(/\d+(\.\d+)?/); return m ? +m[0] : 0; };
+const price = v => { if (v == null) return 0; if (typeof v === 'number') return v; if (typeof v === 'object') { for (const k of ['discountedPrice', 'value', 'amount', 'min', 'max', 'text', 'defaultValue']) { const p = price(v[k]); if (p > 0) return p; } return 0; } const m = String(v).replace(/,/g, '').match(/\d+(\.\d+)?/); return m ? +m[0] : 0; };
+const priceHi = v => { if (v == null) return 0; if (typeof v === 'number') return v; if (typeof v === 'object') { for (const k of ['value', 'amount', 'max', 'mrp', 'discountedPrice', 'min', 'text', 'defaultValue']) { const p = priceHi(v[k]); if (p > 0) return p; } return 0; } const m = String(v).replace(/,/g, '').match(/\d+(\.\d+)?/); return m ? +m[0] : 0; };
 const brandOf = t => (String(t).trim().split(/\s+/)[0] || '').replace(/[^\w&'-]/g, '');
-const pv = v => (v && typeof v === 'object' ? (v.value != null ? v.value : v.formattedValue) : v);
+const pv = v => { if (!v || typeof v !== 'object') return v; if (v.value != null && price(v.value) > 0) return v.value; if (v.formattedValue != null && price(v.formattedValue) > 0) return v.formattedValue; return v; };
 function cromaStock(x) {
   const st = x.stock || {};
   if (x.outOfStock === true || x.available === false || st.available === false) return false;
@@ -20,9 +21,16 @@ function cromaStock(x) {
 function normalise(x, cat) {
   if (!x || typeof x !== 'object') return null;
   const title = x.name || x.title;
-  const sell = price(pv(x.price)), mrp0 = price(pv(x.mrp));
+  const sell = price(pv(x.price));
+  const mrpRaw = x.mrp != null ? x.mrp : (x.wasPrice != null ? x.wasPrice : (x.strikeThroughPrice != null ? x.strikeThroughPrice : (x.oldPrice != null ? x.oldPrice : (x.price && x.price.mrp))));
+  const mrp0 = priceHi(pv(mrpRaw));
   if (!title || !sell) return null;
-  const mrp = mrp0 < sell ? sell : mrp0;
+  let mrp = sell, disc = 0;
+  if (mrp0 > sell) { mrp = mrp0; disc = Math.round((mrp - sell) / mrp * 100); }
+  else { // No usable MRP: fall back to the payload's own discount % (see src/deals.js).
+    const pct = price(x.discount != null ? x.discount : (x.discountPercentage != null ? x.discountPercentage : x.discountPercent));
+    if (pct > 0 && pct < 100) { disc = Math.round(pct); mrp = Math.round(sell / (1 - disc / 100)); }
+  }
   const id = x.code || x.productCode || x.id;
   if (!id) return null;
   const imgRaw = x.plpImage || (x.images && x.images[0] && (x.images[0].url || x.images[0].src)) || '';
@@ -30,7 +38,7 @@ function normalise(x, cat) {
   const rawUrl = x.url || x.productUrl || '';
   const url = rawUrl ? (String(rawUrl).indexOf('http') === 0 ? String(rawUrl) : 'https://www.croma.com' + (String(rawUrl).indexOf('/') === 0 ? rawUrl : '/' + rawUrl)) : '';
   return { id: String(id), title: String(title), brand: String(x.manufacturer || x.brand || brandOf(title)), price: sell, mrp,
-    disc: mrp > sell ? Math.round((mrp - sell) / mrp * 100) : 0, img, url,
+    disc, img, url,
     inStock: cromaStock(x) !== false, cat };
 }
 module.exports = {
