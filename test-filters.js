@@ -24,6 +24,7 @@ const { SORTS } = grab('  const score = p =>', '\n  function filtered', 'SORTS')
 
 check('max price slider reaches ₹2,00,000', PRICE_STEPS[PRICE_STEPS.length - 1] === 200000 && PRICE_STEPS[0] === 0);
 check('priceStep maps stored values to slider stops', priceStep(0) === 0 && PRICE_STEPS[priceStep(30000)] === 30000 && PRICE_STEPS[priceStep(1500)] === 2000 && priceStep(999999) === PRICE_STEPS.length - 1);
+check('saved caps snap to a slider stop on load', src.includes('store.maxPrice = PRICE_STEPS[priceStep(store.maxPrice)]'));
 check('sidebar slider uses the price stops', /max="\$\{PRICE_STEPS\.length - 1\}"[^>]*data-in="maxPrice"/.test(src));
 check('no grocery unit-price preset or sort', !PRESETS.value && !SORTS.unit);
 
@@ -55,7 +56,8 @@ check('preset chips are rendered in the results view', /data-act="preset" data-i
 
 // fetchPage: Stop and rate limit.
 const normalise = x => x;
-const cromaPins = () => ['400049'];
+let pins = ['400049'];
+const cromaPins = () => pins;
 let slept = 0;
 const sleep = ms => { slept += ms; return new Promise(r => setTimeout(r, 5)); };
 const W = {};
@@ -74,6 +76,12 @@ const job = { code: '997', g: { name: 'Televisions' } };
   W.fetch = async () => { calls++; return { status: 429, ok: false }; };
   const r = await fetchPage(job, 1, { stop: false });
   check('repeated HTTP 429 is reported as rate-limited', r.diag === 'rate' && calls === 3 && r.length === 0);
+
+  // Throttled on the first pincode: the next pincode is still tried.
+  pins = ['111111', '222222']; calls = 0;
+  W.fetch = async url => { calls++; return url.includes('111111') ? { status: 429, ok: false } : { status: 200, ok: true, json: async () => ({ products: [{ id: 'x' }], pagination: { totalPages: 1 } }) }; };
+  const r2 = await fetchPage(job, 1, { stop: false });
+  check('a later pincode is tried after the first is rate-limited', r2.length === 1 && calls === 4);
 
   if (fail) { console.log('FAIL: filters / scan regression'); process.exit(1); }
   console.log('PASS: electronics filters, presets, brand search, Stop and rate-limit handling');

@@ -122,7 +122,7 @@
   }
   async function fetchPage(job, page, ctl) {
     const pins = cromaPins();
-    let lastErr, lastItems = null;
+    let lastErr, lastItems = null, rated = false;
     for (const pin of pins) {
       const url = 'https://api.croma.com/searchservices/v1/category/' + job.code + '?currentPage=' + (page - 1) + '&query=' + encodeURIComponent(':discount-desc') + '&fields=FULL&channel=WEB&channelCode=' + encodeURIComponent(pin);
       for (let att = 0; att < 3; att++) {
@@ -130,7 +130,7 @@
         try {
           const r = await W.fetch(url, { headers: { accept: 'application/json' } });
           if (r.status === 401 || r.status === 403) return Object.assign([], { more: false, diag: 'auth' });
-          if (r.status === 429 && att === 2) return Object.assign([], { more: false, diag: 'rate' });
+          if (r.status === 429 && att === 2) { rated = true; break; } // throttled on this pincode: try the next one
           if (r.status === 429 || r.status >= 500) throw new Error('HTTP ' + r.status);
           if (!r.ok) return Object.assign([], { more: false });
           const j = await r.json(), pg = j.pagination || {};
@@ -148,6 +148,7 @@
       }
     }
     if (lastItems) return lastItems;
+    if (rated) return Object.assign([], { more: false, diag: 'rate' });
     throw lastErr;
   }
   // ── Smart Filter mode ─────────────────────────────────────────────
@@ -352,6 +353,7 @@
   // Price history: a few points per product, kept only in this browser.
   store.hist = store.hist || {};
   store.favAt = store.favAt || {};
+  store.maxPrice = PRICE_STEPS[priceStep(store.maxPrice)]; // snap caps saved by the old ₹0–2,000 slider to a stop
   function recordPrices() {
     const now = Date.now(), h = store.hist;
     S.products.forEach(p => {
