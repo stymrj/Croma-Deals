@@ -129,9 +129,9 @@
         if (ctl.stop) throw new Error('stopped');
         try {
           const r = await W.fetch(url, { headers: { accept: 'application/json' } });
-          if (r.status === 429 || r.status >= 500) throw new Error('HTTP ' + r.status);
           if (r.status === 401 || r.status === 403) return Object.assign([], { more: false, diag: 'auth' });
-          if (r.status === 429) return Object.assign([], { more: false, diag: 'rate' });
+          if (r.status === 429 && att === 2) return Object.assign([], { more: false, diag: 'rate' });
+          if (r.status === 429 || r.status >= 500) throw new Error('HTTP ' + r.status);
           if (!r.ok) return Object.assign([], { more: false });
           const j = await r.json(), pg = j.pagination || {};
           const raw = j.products || j.results || (j.data && j.data.products) || [];
@@ -141,7 +141,10 @@
           if (items.length) return items;
           lastItems = items;
           break; // empty for this pincode: try the next one
-        } catch (e) { lastErr = e; await sleep(900 * Math.pow(2, att)); }
+        } catch (e) {
+          if (ctl.stop) throw new Error('stopped');
+          lastErr = e; if (att < 2) await sleep(900 * Math.pow(2, att));
+        }
       }
     }
     if (lastItems) return lastItems;
@@ -335,30 +338,17 @@
   }
 
   // ───────────────────────── Filtering ─────────────────────────
-  // Unit price: rupees per kg, litre or piece, read from the pack size in the title.
-  const UNITS = { kg: ['kg', 1], kgs: ['kg', 1], g: ['kg', .001], gm: ['kg', .001], gms: ['kg', .001], gram: ['kg', .001], grams: ['kg', .001], l: ['L', 1], ltr: ['L', 1], litre: ['L', 1], liter: ['L', 1], ml: ['L', .001], pc: ['pc', 1], pcs: ['pc', 1], piece: ['pc', 1], pieces: ['pc', 1], unit: ['pc', 1], units: ['pc', 1] };
-  function unitOf(t) {
-    const m = String(t).toLowerCase().match(/(?:(\d+)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(kgs?|gms?|grams?|g|ltr|litre|liter|l|ml|pcs?|pieces?|units?)\b/);
-    if (!m || !UNITS[m[3]]) return null;
-    const u = UNITS[m[3]], qty = (m[1] ? +m[1] : 1) * +m[2] * u[1];
-    return qty > 0 ? { base: u[0], qty } : null;
-  }
-  const r1 = n => n < 10 ? '₹' + n.toFixed(1) : $inr(n);
-  function unitLabel(p) {
-    if (!p.unit) return '';
-    const per = p.price / p.unit.qty;
-    if (p.unit.base === 'pc') return r1(per) + ' per piece';
-    return p.unit.qty < 1 ? r1(per / 10) + ' per 100' + (p.unit.base === 'kg' ? ' g' : ' ml') : r1(per) + ' per ' + p.unit.base;
-  }
-  const unitVal = p => p.unit ? p.price / p.unit.qty : 1e12;
   const PRESETS = {
-    under99: ['Under ₹99', p => p.price <= 99],
+    under1k: ['Under ₹1,000', p => p.price <= 1000],
+    under10k: ['Under ₹10,000', p => p.price <= 10000],
     half: ['50% off or more', p => p.disc >= 50],
-    big: ['Save ₹100+', p => p.save >= 100],
+    big: ['Save ₹5,000+', p => p.save >= 5000],
     drops: ['Price drops', p => !!p.was],
-    lowest: ['Lowest ever', p => !!p.lowEver],
-    value: ['Best value per kg / L', p => !!p.unit]
+    lowest: ['Lowest ever', p => !!p.lowEver]
   };
+  // Max-price slider stops, sized for electronics (0 = any price).
+  const PRICE_STEPS = [0, 500, 1000, 2000, 5000, 10000, 15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000];
+  const priceStep = v => { if (!v) return 0; const i = PRICE_STEPS.findIndex(x => x >= v); return i < 0 ? PRICE_STEPS.length - 1 : i; };
   // Price history: a few points per product, kept only in this browser.
   store.hist = store.hist || {};
   store.favAt = store.favAt || {};
@@ -379,7 +369,6 @@
     save: ['Biggest saving ₹', (a, b) => b.save - a.save],
     pasc: ['Price: low → high', (a, b) => a.price - b.price],
     pdesc: ['Price: high → low', (a, b) => b.price - a.price],
-    unit: ['Unit price: low → high', (a, b) => unitVal(a) - unitVal(b)],
     name: ['Name A–Z', (a, b) => a.title.localeCompare(b.title)]
   };
   function filtered() {
@@ -396,10 +385,10 @@
       if ((S.favOnly || S.tab === 'saved') && !fav.has(p.id)) return;
       if (S.newOnly && !p.isNew && !p.was) return;
       if (S.preset && !PRESETS[S.preset][1](p)) return;
-      if (q.length) { const t = (p.title + ' ' + p.cat).toLowerCase(); if (!q.every(w => t.includes(w))) return; }
+      if (q.length) { const t = (p.title + ' ' + p.brand + ' ' + p.cat).toLowerCase(); if (!q.every(w => t.includes(w))) return; }
       out.push(p);
     });
-    return out.sort(S.preset === 'value' ? SORTS.unit[1] : SORTS[store.sort][1]);
+    return out.sort((SORTS[store.sort] || SORTS.disc)[1]);
   }
 
   // ───────────────────────── UI ─────────────────────────
@@ -559,7 +548,6 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
 .presets{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 16px}
 .presets .chip{padding:6px 13px}
 .tg.low{background:var(--ok);color:#fff}
-.up{font-size:12px;color:var(--mt);font-weight:600}
 .hist{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--mt);font-weight:600;margin-top:2px}
 .hist svg{flex:none}
 .watch{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:14px 16px;margin-bottom:18px}
@@ -630,7 +618,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
  .hs{grid-auto-columns:46%;gap:10px;margin:0 -12px;padding:0 12px 6px;scrollbar-width:none}.hs::-webkit-scrollbar{display:none}
  .sh h3{font-size:16px}.sec{margin-bottom:22px}
  .card{border-radius:14px}.card:hover{transform:none;box-shadow:none}
- .inf{padding:10px 10px 12px}.ti{font-size:13px}.ct{font-size:11px}.pr b{font-size:17px}.pr s{font-size:12px}.sv,.up{font-size:11.5px}
+ .inf{padding:10px 10px 12px}.ti{font-size:13px}.ct{font-size:11px}.pr b{font-size:17px}.pr s{font-size:12px}.sv{font-size:11.5px}
  .acts button{height:34px;font-size:12px;gap:4px}.acts .hide{width:34px}
  .dc{font-size:11px;padding:2px 6px;left:8px;top:8px}.tg{left:8px;top:32px;font-size:9.5px}.fv{width:30px;height:30px;top:6px;right:6px}
  .list .im{width:88px;height:88px}
@@ -702,7 +690,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
   <div class="chips" style="margin-top:8px"><button class="chip" data-act="smartfilter">${store.smartFilter ? 'Stop smart filter' : 'Start smart filter'}</button></div></div>
  <div><h4>${ic('sliders', 15)}Filters</h4>
   <label class="row"><span>Min discount</span><b>${store.minDisc}%</b></label><input type="range" min="0" max="90" step="5" value="${store.minDisc}" data-in="minDisc">
-  <label class="row" style="margin-top:14px"><span>Max price</span><b>${store.maxPrice ? $inr(store.maxPrice) : 'Any'}</b></label><input type="range" min="0" max="2000" step="50" value="${store.maxPrice}" data-in="maxPrice">
+  <label class="row" style="margin-top:14px"><span>Max price</span><b>${store.maxPrice ? $inr(store.maxPrice) : 'Any'}</b></label><input type="range" min="0" max="${PRICE_STEPS.length - 1}" step="1" value="${priceStep(store.maxPrice)}" data-in="maxPrice">
   <label class="sw" style="margin-top:16px"><input type="checkbox" data-in="stockOnly" ${store.stockOnly ? 'checked' : ''}> In stock only</label>
   <label class="sw" style="margin-top:10px"><input type="checkbox" data-in="favOnly" ${S.favOnly ? 'checked' : ''}> Saved only</label>
   <label class="sw" style="margin-top:10px"><input type="checkbox" data-in="newOnly" ${S.newOnly ? 'checked' : ''}> New or price dropped</label></div>
@@ -743,7 +731,6 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
   <div class="ct">${esc(p.cat)}</div>
   <div class="pr"><b>${$inr(p.price)}</b><s>${$inr(p.mrp)}</s></div>
   <div class="sv">Save ${$inr(p.save)}${p.inStock ? '' : ' · <i>Out of stock</i>'}</div>
-  ${p.unit ? `<div class="up">${unitLabel(p)}</div>` : ''}
   ${spark(p)}
   <div class="acts"><button class="add ${inList ? 'in' : ''}" data-act="add" data-id="${esc(p.id)}">${inList ? ic('check', 16) + 'In list · ' + inList : ic('plus', 16) + 'Add to list'}</button><button class="hide" data-act="hide" data-id="${esc(p.id)}" title="Hide">${ic('eyeoff', 16)}</button></div></div></article>`;
   }
@@ -764,10 +751,11 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     if (!S.products.size && !S.scanning) return `<main id="main">${S.scannedOnce ? diagView() : checklist()}</main>`;
     const list = filtered();
     const tabs = [['best', 'Best deals'], ['all', 'All deals'], ['saved', 'Saved' + (store.favs.length ? ' · ' + store.favs.length : '')]];
-    const head = `<div class="tabs">${tabs.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}${S.scanning ? `<span class="live">${ic('scan', 14)}Scanning ${S.done}/${S.total}</span>` : ''}</div>`;
+    const presets = `<div class="presets">${Object.entries(PRESETS).map(([k, v]) => `<button class="chip ${S.preset === k ? 'on' : ''}" data-act="preset" data-id="${k}" aria-pressed="${S.preset === k}">${esc(v[0])}</button>`).join('')}</div>`;
+    const head = `<div class="tabs">${tabs.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}${S.scanning ? `<span class="live">${ic('scan', 14)}Scanning ${S.done}/${S.total}</span>` : ''}</div>${presets}`;
     let body;
     if (S.tab === 'best') {
-      body = bestView(list) || `<div class="empty"><span class="ei">${ic(S.scanning ? 'scan' : 'tag', 26)}</span><b>${S.scanning ? 'Finding the best deals…' : 'No deals at this discount'}</b>${S.scanning ? 'They appear here as each category comes in.' : 'Lower the minimum discount in the menu.'}</div>`;
+      body = bestView(list) || `<div class="empty"><span class="ei">${ic(S.scanning ? 'scan' : 'tag', 26)}</span><b>${S.scanning ? 'Finding the best deals…' : 'No deals match these filters'}</b>${S.scanning ? 'They appear here as each category comes in.' : 'Lower the minimum discount, raise Max price, or clear the preset.'}</div>`;
     } else {
       const cats = [...new Set([...S.products.values()].map(p => p.cat.split(' › ')[0]))];
       const fav = new Set(store.favs);
@@ -837,7 +825,6 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
       if (!allowed(p) || S.products.has(p.id)) continue;
       const prev = store.prices[p.id];
       p.isNew = prev == null; p.was = prev != null && prev > p.price ? prev : 0;
-      p.unit = unitOf(p.title);
       const hs = store.hist[p.id];
       if (hs && hs.length) {
         const ps = hs.map(x => x[1]), lo = Math.min(...ps), hi = Math.max(...ps);
@@ -904,7 +891,8 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     if (P.locInput(k, e.target.value)) return;
     if (k === 'tgToken' || k === 'tgChat') { store.tg[k === 'tgToken' ? 'token' : 'chat'] = e.target.value.trim(); save(); return; }
     if (k === 'tgMin') { store.tg.minDisc = +e.target.value; save(); const b = root.getElementById('tgminv'); if (b) b.textContent = store.tg.minDisc + '% off'; return; }
-    if (k === 'depth' || k === 'minDisc' || k === 'maxPrice') { store[k] = +e.target.value; save(); S.shown = 60; render(); return; }
+    if (k === 'maxPrice') { store.maxPrice = PRICE_STEPS[+e.target.value] || 0; save(); S.shown = 60; render(); return; }
+    if (k === 'depth' || k === 'minDisc') { store[k] = +e.target.value; save(); S.shown = 60; render(); return; }
   });
   root.addEventListener('change', e => {
     const k = e.target.dataset && e.target.dataset.in; if (!k) return;
@@ -954,14 +942,14 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
       case 'preset': S.preset = S.preset === id ? '' : id; S.shown = 60; render(); break;
       case 'tab': S.tab = el.dataset.v; S.shown = 60; if (S.tab !== 'all') S.cat = ''; render(); { const m = root.getElementById('main'); if (m) m.scrollTop = 0; } break;
       case 'seeall': S.tab = 'all'; S.cat = id; S.shown = 60; render(); { const m = root.getElementById('main'); if (m) m.scrollTop = 0; } break;
-      case 'hide': store.hidden.push(id); save(); render(); toast('Hidden — undo via Data › Unhide'); break;
+      case 'hide': store.hidden.push(id); save(); render(); toast('Hidden — undo via Export › Unhide'); break;
       case 'unhide': store.hidden = []; save(); render(); break;
       case 'add': store.list[id] = (store.list[id] || 0) + 1; { const p = S.products.get(id); if (p) store._cache[id] = p; } save(); render(); break;
       case 'inc': store.list[id]++; save(); render(); break;
       case 'dec': if (--store.list[id] <= 0) delete store.list[id]; save(); render(); break;
       case 'clearlist': store.list = {}; save(); render(); break;
       case 'copylist': copy(listText() || 'Empty list', 'List copied'); break;
-      case 'openlinks': Object.keys(store.list).map(i => S.products.get(i)).filter(p => p && p.url).forEach(p => window.open(p.url, '_blank', 'noopener')); break;
+      case 'openlinks': Object.keys(store.list).map(i => S.products.get(i) || store._cache[i]).filter(p => p && p.url).forEach(p => window.open(p.url, '_blank', 'noopener')); break;
       case 'copyall': copy(filtered().slice(0, 20).map(p => `${p.disc}% off · ${p.title} · ${$inr(p.price)} (MRP ${$inr(p.mrp)})${p.url ? '\n' + p.url : ''}`).join('\n'), 'Top 20 deals copied'); break;
       case 'csv': {
         const rows = [['Title', 'Brand', 'Category', 'Price', 'MRP', 'Discount %', 'Saving', 'In stock', 'URL']].concat(filtered().map(p => [p.title, p.brand, p.cat, p.price, p.mrp, p.disc, p.save, p.inStock, p.url]));
