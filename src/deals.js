@@ -789,6 +789,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
  <div class="df"><div class="row"><span class="note">Total</span><span class="tot">${$inr(tot)}</span></div><div class="row"><span class="note">You save</span><b style="color:var(--ok);font-size:16px">${$inr(mrp - tot)}</b></div>
  <div class="row" style="gap:10px;margin-top:4px"><button class="btn ghost" style="flex:1" data-act="copylist">${ic('copy', 16)}Copy list</button><button class="btn" style="flex:1;height:40px;font-size:14px" data-act="openlinks">${ic('ext', 16)}Open all</button></div></div></div>`;
   }
+  let tt, toastMsg = '', toastUntil = 0;
   function render() {
     const dark = store.theme === 'dark' || (store.theme === 'auto' && matchMedia('(prefers-color-scheme:dark)').matches);
     const keepScroll = (root.getElementById('main') || {}).scrollTop || 0;
@@ -806,17 +807,18 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
  <button class="ib" data-act="theme" title="${dark ? 'Light' : 'Dark'} mode">${ic(dark ? 'sun' : 'moon')}</button>
  <button class="hb" data-act="panel" title="Shopping list">${ic('bag')}<span class="lb">List</span>${count ? `<span class="n">${count}</span>` : ''}</button>
  <button class="ib" data-act="close" title="Close (Esc)">${ic('x')}</button>${S.scanning ? `<div class="prog" style="width:${pct}%"></div>` : ''}</header>
- <div class="body">${sideOpen ? '<div class="scrim side" data-act="side"></div>' : ''}${sidebar()}${mainView()}</div>${S.panel ? '<div class="scrim" data-act="closepanel"></div>' : ''}${drawer()}${S.pick ? pickerUI() : ''}${S.tgm ? tgModal() : ''}<div class="toast" id="toast"></div>`;
+ <div class="body">${sideOpen ? '<div class="scrim side" data-act="side"></div>' : ''}${sidebar()}${mainView()}</div>${S.panel ? '<div class="scrim" data-act="closepanel"></div>' : ''}${drawer()}${S.pick ? pickerUI() : ''}${S.tgm ? tgModal() : ''}<div class="toast${Date.now() < toastUntil ? ' on' : ''}" id="toast">${Date.now() < toastUntil ? esc(toastMsg) : ''}</div>`;
     const m = root.getElementById('main'); if (m) m.scrollTop = keepScroll;
     const a = root.querySelector('aside'); if (a) a.scrollTop = sideScroll;
     if (focused === 'q') { const i = root.querySelector('[data-in=q]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
   }
   let rq = 0;
   const scheduleRender = () => { if (rq) return; rq = setTimeout(() => { rq = 0; render(); }, 250); };
-  let tt;
+  // render() rebuilds #toast from toastMsg/toastUntil, so a toast shown just before a render stays visible.
   function toast(msg) {
-    const t = root.getElementById('toast'); if (!t) return;
-    t.textContent = msg; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 3600);
+    toastMsg = msg; toastUntil = Date.now() + 3600;
+    const t = root.getElementById('toast'); if (t) { t.textContent = msg; t.classList.add('on'); }
+    clearTimeout(tt); tt = setTimeout(() => { const el = root.getElementById('toast'); if (el) el.classList.remove('on'); }, 3600);
   }
   async function copy(text, msg) {
     try { await navigator.clipboard.writeText(text); toast(msg || 'Copied'); }

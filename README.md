@@ -124,6 +124,7 @@ node --check src/deals.js
 node --check bot/platform.js bot/core.js bot/run.js
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/telegram-bot.yml'))"   # workflow parses
 node test-results-tab.js   # regression test: sample payload -> parser -> cards
+node test-toast-render.js  # regression test: toasts (e.g. Self-test result) survive re-render
 node build.js              # rebuild dist/ and index.html
 ```
 
@@ -146,6 +147,7 @@ bot/                 Telegram bot (Node, no dependencies)
 .github/workflows/   telegram-bot.yml (every 30 minutes, 08:31–00:01 IST)
 .env.example         settings for local bot runs
 test-results-tab.js  regression test: sample payload -> parser -> cards
+test-toast-render.js regression test: toast survives render()
 fixtures/sample-api.json
 favicon.svg
 ```
