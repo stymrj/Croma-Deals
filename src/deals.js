@@ -349,7 +349,7 @@
   };
   // Max-price slider stops, sized for electronics (0 = any price).
   const PRICE_STEPS = [0, 500, 1000, 2000, 5000, 10000, 15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000];
-  const priceStep = v => { if (!v) return 0; const i = PRICE_STEPS.findIndex(x => x >= v); return i < 0 ? PRICE_STEPS.length - 1 : i; };
+  const priceStep = v => { if (!v) return 0; let best = 1; PRICE_STEPS.forEach((x, i) => { if (i && Math.abs(x - v) < Math.abs(PRICE_STEPS[best] - v)) best = i; }); return best; }; // nearest non-zero stop, ties go lower
   // Price history: a few points per product, kept only in this browser.
   store.hist = store.hist || {};
   store.favAt = store.favAt || {};

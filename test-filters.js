@@ -15,7 +15,7 @@ function extractFn(srcText, startMarker, endMarker) {
   return srcText.slice(a, b);
 }
 // `const` declared inside eval() stays inside it, so return what we need.
-const grab = (start, end, names) => eval('(() => {' + extractFn(src, start, end) + '; return {' + names + '}; })()');
+const grab = (start, end, names) => eval('(() => {' + extractFn(src, start, end) + '\n; return {' + names + '}; })()');
 let fail = 0;
 const check = (name, ok) => { console.log((ok ? 'ok   ' : 'FAIL ') + name); if (!ok) fail = 1; };
 
@@ -23,7 +23,7 @@ const { PRESETS, PRICE_STEPS, priceStep } = grab('  const PRESETS = {', '\n  // 
 const { SORTS } = grab('  const score = p =>', '\n  function filtered', 'SORTS');
 
 check('max price slider reaches ₹2,00,000', PRICE_STEPS[PRICE_STEPS.length - 1] === 200000 && PRICE_STEPS[0] === 0);
-check('priceStep maps stored values to slider stops', priceStep(0) === 0 && PRICE_STEPS[priceStep(30000)] === 30000 && PRICE_STEPS[priceStep(1500)] === 2000 && priceStep(999999) === PRICE_STEPS.length - 1);
+check('priceStep maps saved caps to the nearest stop (ties lower)', priceStep(0) === 0 && PRICE_STEPS[priceStep(30000)] === 30000 && PRICE_STEPS[priceStep(1500)] === 1000 && PRICE_STEPS[priceStep(550)] === 500 && PRICE_STEPS[priceStep(1800)] === 2000 && PRICE_STEPS[priceStep(50)] === 500 && priceStep(999999) === PRICE_STEPS.length - 1);
 check('saved caps snap to a slider stop on load', src.includes('store.maxPrice = PRICE_STEPS[priceStep(store.maxPrice)]'));
 check('sidebar slider uses the price stops', /max="\$\{PRICE_STEPS\.length - 1\}"[^>]*data-in="maxPrice"/.test(src));
 check('no grocery unit-price preset or sort', !PRESETS.value && !SORTS.unit);
