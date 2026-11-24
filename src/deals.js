@@ -357,11 +357,11 @@
   function specsOf(t) {
     const s = String(t), out = []; let m;
     const add = x => { if (!out.includes(x)) out.push(x); };
-    if ((m = s.match(/(\d{2,3}(?:\.\d)?)\s*(?:inch(?:es)?|"|”|-inch)/i))) add(Math.round(+m[1]) + ' inch');
+    if ((m = s.match(/(\d{2,3}(?:\.\d+)?)\s*(?:inch(?:es)?|"|”|-inch)/i))) add(+m[1] + ' inch');
     const gb = /(\d+)\s*(GB|TB)\b(\s*RAM)?/gi;
     while ((m = gb.exec(s))) add(m[1] + m[2].toUpperCase() + (m[3] ? ' RAM' : ''));
-    if ((m = s.match(/(\d(?:\.\d)?)\s*Ton\b/i))) add(m[1] + ' Ton');
-    if ((m = s.match(/(\d{1,2}(?:\.\d)?)\s*kg\b/i))) add(m[1] + ' kg');
+    if ((m = s.match(/(\d+(?:\.\d+)?)\s*Ton\b/i))) add(+m[1] + ' Ton');
+    if ((m = s.match(/(\d+(?:\.\d+)?)\s*kg\b/i))) add(+m[1] + ' kg');
     if ((m = s.match(/(\d{2,4})\s*(?:L|Litres?|Liters?|Ltr)\b/i))) add(m[1] + ' L');
     for (const k of ['5G', '4K', 'OLED', 'QLED', 'Wi-Fi', 'Bluetooth', 'ANC']) if (new RegExp('\\b' + k + '\\b', 'i').test(s)) add(k);
     return out;
