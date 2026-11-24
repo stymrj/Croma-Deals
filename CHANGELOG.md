@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+- Max price slider now covers electronics prices (stops from ₹500 to ₹2,00,000). It was capped at ₹2,000, so setting it hid almost every TV, phone and laptop.
+- Preset chips are now shown above the results: Under ₹1,000, Under ₹10,000, 50% off or more, Save ₹5,000+, Price drops, Lowest ever. They were defined before but never rendered.
+- Removed the grocery-style unit price (per kg / L / piece) label, sort and preset; it misread titles like "7 kg washing machine".
+- Search also matches the brand.
+- Stop scan now stops right away instead of finishing retry back-offs; repeated HTTP 429 is reported as rate-limited.
+- Shopping list "Open all" also opens items added in an earlier session; the Hide toast points to Export › Unhide.
+
 ## v2.0.0 — 2026-11-08
 - Fixed (2026-11-09): install button now reads “Croma Deals” instead of the generic “PriceDrop Hunter”, so the dragged bookmark is named after this store instead of colliding with every other tool.
 - Fixed (2026-11-09): highest-discount items no longer vanish — a missing MRP falls back to the struck-through price (`wasPrice` / `strikeThroughPrice` / `oldPrice`) or the payload's own discount %, and `{min,max}` range / zero-value prices parse instead of ₹0. Previously these items computed 0% off and the Min-discount filter hid them. The Telegram bot no longer ends a scan early on a short page (only on the last item's discount).
