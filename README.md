@@ -21,7 +21,7 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 
 - **Reliability:** `api.croma.com` search + retries with exponential backoff, and empty-state diagnostics that say *why* a scan returned nothing (signed out, rate-limited, failed categories, empty categories, no pincode saved). A built-in self-test (sidebar → Self-test) runs the parser on inline samples in your browser, no network needed.
 - **Depth:** 3 pages per category by default (was 2), 3 parallel category workers with progress, and de-dupe across pages and categories by product id.
-- **Power features the baseline lacks:** lowest-ever + price-drop labels and Telegram alerts, saved-item price tracking with a sparkline, a cross-category "Biggest discounts" row, unit-price / value sort, multi-word search, multi-pincode support (comma-separated pincodes in the sidebar — first pincode with results wins per category), Smart Filter mode (hide unavailable + continuous scroll), and CSV + JSON export.
+- **Power features the baseline lacks:** lowest-ever + price-drop labels and Telegram alerts, saved-item price tracking with a sparkline, a cross-category "Biggest discounts" row, one-tap price presets, multi-word search (title, brand or category), multi-pincode support (comma-separated pincodes in the sidebar — first pincode with results wins per category), Smart Filter mode (hide unavailable + continuous scroll), and CSV + JSON export.
 - **Bot:** scheduled Telegram bot with a price-history state file (dedupe + price-drop + restock alerts, 30-day pruning), not just a latest-deals list.
 
 ## Features
@@ -32,10 +32,9 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 - Labels products that are new, cheaper than last time, or at their lowest price ever
 - Price history sparkline on every product you have seen before
 - Saved items strip showing how much each one dropped since you saved it
-- Unit price (per kg, litre or piece) with a value sort
-- One-tap presets: under ₹99, 50% off, save ₹100+, price drops, lowest ever, best value
+- One-tap presets above the results: under ₹1,000, under ₹10,000, 50% off, save ₹5,000+, price drops, lowest ever
 - A setup checklist on first open
-- Filters: search, category, brand, maximum price, minimum discount, stock, saved items
+- Filters: search (title, brand, category), category, maximum price (up to ₹2,00,000), minimum discount, stock, saved items
 - In-stock-only is on by default; turn it off to see out-of-stock items, labelled as such
 - Built-in self-test (sidebar → Self-test) checks the parser on samples, no network needed
 - Empty-scan diagnostics say why nothing matched (signed out, rate-limited, failed categories, no pincode saved)
@@ -59,7 +58,7 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 
 ## Use
 
-Pick categories in the scan picker, press Scan, and browse Best deals / All deals / Saved. Heart a deal to save it, Add to list to build a shopping list, and use the presets (under ₹99, 50% off, save ₹100+) for one-tap filtering. Press **Self-test** in the sidebar any time to check the parser without scanning.
+Pick categories in the scan picker, press Scan, and browse Best deals / All deals / Saved. Heart a deal to save it, Add to list to build a shopping list, and use the presets above the results (under ₹1,000, under ₹10,000, 50% off, save ₹5,000+, price drops, lowest ever) for one-tap filtering. Press **Self-test** in the sidebar any time to check the parser without scanning.
  Smart Filter mode (Croma only): open a Croma category/search page, open Hunter, and switch on "Hide unavailable + auto-load more" in the sidebar — unavailable cards disappear and more results keep loading as you scroll.
 
 ## Keyboard shortcuts
@@ -124,6 +123,7 @@ node --check src/deals.js
 node --check bot/platform.js bot/core.js bot/run.js
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/telegram-bot.yml'))"   # workflow parses
 node test-results-tab.js   # regression test: sample payload -> parser -> cards
+node test-filters.js       # regression test: price filter, presets, brand search, Stop / rate limit
 node build.js              # rebuild dist/ and index.html
 ```
 
@@ -146,6 +146,7 @@ bot/                 Telegram bot (Node, no dependencies)
 .github/workflows/   telegram-bot.yml (every 30 minutes, 08:31–00:01 IST)
 .env.example         settings for local bot runs
 test-results-tab.js  regression test: sample payload -> parser -> cards
+test-filters.js      regression test: filters, presets, scan Stop
 fixtures/sample-api.json
 favicon.svg
 ```
