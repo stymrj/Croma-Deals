@@ -69,6 +69,7 @@ store.sort = 'disc';
 const mv = extractFn(src, '  function mainView() {', '\n  function drawer');
 check('brand, category and spec controls render in the results bar', /data-in="brand"/.test(mv) && /data-in="cat"/.test(mv) && /data-act="spec"/.test(mv) && /data-act="clearf"/.test(mv));
 check('a selected brand/category with 0 matches stays visible in its dropdown', /S\.cat && !cats\.some\(x => x\[0\] === S\.cat\)/.test(mv) && /S\.brand && !brands\.some/.test(mv));
+check('Clear filters also resets Saved only / New only', /case 'clearf':[^\n]*S\.favOnly = S\.newOnly = false/.test(src) && /const active = [^;]*S\.favOnly \|\| S\.newOnly/.test(mv));
 check('preset chips are rendered in the results view', /data-act="preset" data-id="\$\{k\}"/.test(extractFn(src, '  function mainView() {', '\n  function drawer')));
 
 // fetchPage: Stop and rate limit.
