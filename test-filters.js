@@ -30,6 +30,7 @@ check('specs read from electronics titles', JSON.stringify(specsOf('Samsung 138 
   && JSON.stringify(specsOf('OnePlus Nord 5G (8GB RAM, 128GB)')) === '["8GB RAM","128GB","5G"]'
   && JSON.stringify(specsOf('LG 1.5 Ton 5 Star Inverter Split AC')) === '["1.5 Ton"]'
   && JSON.stringify(specsOf('Samsung 7 kg Front Load Washing Machine')) === '["7 kg"]');
+check('fractional specs keep their value', JSON.stringify(specsOf('HP Laptop 39.6 cm (15.6 inch)')) === '["15.6 inch"]' && JSON.stringify(specsOf('LG 1.25 Ton AC')) === '["1.25 Ton"]' && JSON.stringify(specsOf('IFB 6.5 kg Washer')) === '["6.5 kg"]');
 check('no generic sliders left for discount / price', !/data-in="(minDisc|maxPrice)"/.test(src) && /data-act="mindisc"/.test(src) && /data-act="band"/.test(src));
 check('saved off-step discount snaps down to a pill', (() => { const store = { minDisc: 35 }; eval(extractFn(src, '  if (!DISC_STEPS', '\n')); return store.minDisc === 30 && DISC_STEPS.includes(30); })());
 check('no grocery unit-price preset or sort', !PRESETS.value && !SORTS.unit);
