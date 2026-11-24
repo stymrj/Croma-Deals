@@ -793,7 +793,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     const brands = count(filtered('brand'), p => p.brand).slice(0, 40), cats = count(filtered('cat'), p => p.cat.split(' › ')[0]);
     const specRow = count(filtered('spec'), specs).filter(([k, n]) => n > 1 || k === S.spec).slice(0, 12);
     const opt = (v, cur, label) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(label)}</option>`;
-    const active = S.brand || S.cat || S.spec || S.preset || store.band || S.q;
+    const active = S.brand || S.cat || S.spec || S.preset || store.band || S.q || S.favOnly || S.newOnly;
     const bar = `<div class="fbar">
   <label class="fsel"><span>Brand</span><select data-in="brand"><option value="">All brands</option>${brands.map(([b, n]) => opt(b, S.brand, b + ' (' + n + ')')).join('')}${S.brand && !brands.some(x => x[0] === S.brand) ? opt(S.brand, S.brand, S.brand + ' (0)') : ''}</select></label>
   <label class="fsel"><span>Category</span><select data-in="cat"><option value="">All categories</option>${cats.map(([c, n]) => opt(c, S.cat, c + ' (' + n + ')')).join('')}${S.cat && !cats.some(x => x[0] === S.cat) ? opt(S.cat, S.cat, S.cat + ' (0)') : ''}</select></label>
@@ -986,7 +986,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
       case 'spec': S.spec = S.spec === id ? '' : id; S.shown = 60; render(); break;
       case 'band': store.band = store.band === id ? '' : id; save(); S.shown = 60; render(); break;
       case 'mindisc': store.minDisc = +id; save(); S.shown = 60; render(); break;
-      case 'clearf': S.brand = S.cat = S.spec = S.preset = S.q = ''; store.band = ''; save(); S.shown = 60; render(); break;
+      case 'clearf': S.brand = S.cat = S.spec = S.preset = S.q = ''; S.favOnly = S.newOnly = false; store.band = ''; save(); S.shown = 60; render(); break;
       case 'tab': S.tab = el.dataset.v; S.shown = 60; render(); { const m = root.getElementById('main'); if (m) m.scrollTop = 0; } break;
       case 'seeall': S.tab = 'all'; S.cat = id; S.shown = 60; render(); { const m = root.getElementById('main'); if (m) m.scrollTop = 0; } break;
       case 'hide': store.hidden.push(id); save(); render(); toast('Hidden — undo via Export › Unhide'); break;
