@@ -6,6 +6,7 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 
 ## What's new in v2
 
+- **New design + electronics filters:** a clean panel in the same style as the other deal tools. Min discount and Price range are one-tap pills (Under ₹1,000 · ₹1k–₹5k · ₹5k–₹15k · ₹15k–₹30k · ₹30k–₹60k · Above ₹60k), the results bar has Brand and Category dropdowns with counts, and spec chips read from titles (55 inch, 8GB RAM, 256GB, 1.5 Ton, 5G, 4K…) narrow results in one tap.
 - **Fetch + parse rewritten (v2):** still uses Croma's own search API (`api.croma.com/searchservices/v1/category/<id>?currentPage=<n>&query=:discount-desc&fields=FULL&channel=WEB&channelCode=<pincode>`), but now also reads `results` / `data.products` response shapes and derives page count from `totalResults`/`pageSize` when `totalPages` is missing.
 - **Parser accepts every product shape:** price/MRP as `{value}` objects, plain numbers or formatted strings (`"₹35,999"`), `plpImage` (relative or absolute) or `images[0]`, `url` or `productUrl`. Discount is always recomputed from price vs MRP.
 - **Highest-discount fix:** items at the deepest discounts no longer vanish — a missing MRP now falls back to the struck-through price (`wasPrice` / `strikeThroughPrice` / `oldPrice`) or the payload's own discount %, `{min,max}` range prices and `{value: 0, formattedValue}` prices now parse instead of reading as ₹0, and low-stock/clearance items stay visible (only genuinely out-of-stock items are hidden by In-stock-only).
@@ -21,7 +22,7 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 
 - **Reliability:** `api.croma.com` search + retries with exponential backoff, and empty-state diagnostics that say *why* a scan returned nothing (signed out, rate-limited, failed categories, empty categories, no pincode saved). A built-in self-test (sidebar → Self-test) runs the parser on inline samples in your browser, no network needed.
 - **Depth:** 3 pages per category by default (was 2), 3 parallel category workers with progress, and de-dupe across pages and categories by product id.
-- **Power features the baseline lacks:** lowest-ever + price-drop labels and Telegram alerts, saved-item price tracking with a sparkline, a cross-category "Biggest discounts" row, one-tap price presets, multi-word search (title, brand or category), multi-pincode support (comma-separated pincodes in the sidebar — first pincode with results wins per category), Smart Filter mode (hide unavailable + continuous scroll), and CSV + JSON export.
+- **Power features the baseline lacks:** lowest-ever + price-drop labels and Telegram alerts, saved-item price tracking with a sparkline, a cross-category "Biggest discounts" row, one-tap price bands, spec chips and savings quick picks, multi-word search (title, brand or category), multi-pincode support (comma-separated pincodes in the sidebar — first pincode with results wins per category), Smart Filter mode (hide unavailable + continuous scroll), and CSV + JSON export.
 - **Bot:** scheduled Telegram bot with a price-history state file (dedupe + price-drop + restock alerts, 30-day pruning), not just a latest-deals list.
 
 ## Features
@@ -32,7 +33,7 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 - Labels products that are new, cheaper than last time, or at their lowest price ever
 - Price history sparkline on every product you have seen before
 - Saved items strip showing how much each one dropped since you saved it
-- One-tap presets above the results: under ₹1,000, under ₹10,000, 50% off, save ₹5,000+, price drops, lowest ever
+- One-tap filters: discount pills, electronics price bands, Brand/Category dropdowns with counts, spec chips (55 inch, 8GB RAM, 1.5 Ton…) and quick picks (save ₹2,000+/₹5,000+/₹10,000+, price drops, lowest ever)
 - A setup checklist on first open
 - Filters: search (title, brand, category), category, maximum price (up to ₹2,00,000), minimum discount, stock, saved items
 - In-stock-only is on by default; turn it off to see out-of-stock items, labelled as such
@@ -58,7 +59,7 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 
 ## Use
 
-Pick categories in the scan picker, press Scan, and browse Best deals / All deals / Saved. Heart a deal to save it, Add to list to build a shopping list, and use the presets above the results (under ₹1,000, under ₹10,000, 50% off, save ₹5,000+, price drops, lowest ever) for one-tap filtering. Press **Self-test** in the sidebar any time to check the parser without scanning.
+Pick categories in the scan picker, press Scan, and browse Best deals / All deals / Saved. Heart a deal to save it, Add to list to build a shopping list, and narrow results with the discount and price pills in the sidebar, the Brand / Category dropdowns and spec chips above the results, and the quick picks (save ₹5,000+, price drops, lowest ever). Press **Self-test** in the sidebar any time to check the parser without scanning.
  Smart Filter mode (Croma only): open a Croma category/search page, open Hunter, and switch on "Hide unavailable + auto-load more" in the sidebar — unavailable cards disappear and more results keep loading as you scroll.
 
 ## Keyboard shortcuts
@@ -124,7 +125,7 @@ node --check bot/platform.js bot/core.js bot/run.js
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/telegram-bot.yml'))"   # workflow parses
 node test-results-tab.js   # regression test: sample payload -> parser -> cards
 node test-toast-render.js  # regression test: toasts (e.g. Self-test result) survive re-render
-node test-filters.js       # regression test: price filter, presets, brand search, Stop / rate limit
+node test-filters.js       # regression test: price bands, discount pills, spec/brand filters, Stop / rate limit
 node build.js              # rebuild dist/ and index.html
 ```
 

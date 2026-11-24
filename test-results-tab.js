@@ -31,6 +31,8 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const ic = () => '';
 const spark = () => '';
 const store = { hist: {}, favs: [], list: {} };
+eval(extractFn(src, '  function specsOf(t) {', '\n  const specs'));
+const specs = p => specsOf(p.title);
 eval(extractFn(src, '  function card(p, fav, qtyMap) {', '\n  const byDisc'));
 
 const parsed = fixture.products.map(x => normalise(x, 'Televisions')).filter(Boolean);
@@ -52,6 +54,7 @@ console.log('Contains first product URL?', html.includes('/test-tv-1/p/CRM0001')
 console.log('Out-of-stock card marked oos?', html.includes('card oos'));
 console.log('Lowest-ever badge renders?', html.includes('Lowest ever'));
 console.log('Price-drop badge renders?', html.includes('Price drop'));
+console.log('Brand + spec line render?', html.includes('class="br"') && html.includes('class="spx"'));
 if (cards === parsed.length) {
   console.log('PASS: all ' + parsed.length + ' cards render');
 } else {
