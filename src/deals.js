@@ -357,7 +357,7 @@
   function specsOf(t) {
     const s = String(t), out = []; let m;
     const add = x => { if (!out.includes(x)) out.push(x); };
-    if ((m = s.match(/(\d{2,3}(?:\.\d+)?)\s*(?:inch(?:es)?|"|”|-inch)/i))) add(+m[1] + ' inch');
+    if ((m = s.match(/(?<![\d.])(\d{1,3}(?:\.\d+)?)\s*(?:inch(?:es)?|"|”|-inch)/i))) add(+m[1] + ' inch');
     const gb = /(\d+)\s*(GB|TB)\b(\s*RAM)?/gi;
     while ((m = gb.exec(s))) add(m[1] + m[2].toUpperCase() + (m[3] ? ' RAM' : ''));
     if ((m = s.match(/(\d+(?:\.\d+)?)\s*Ton\b/i))) add(+m[1] + ' Ton');
