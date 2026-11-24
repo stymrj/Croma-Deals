@@ -796,7 +796,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     const active = S.brand || S.cat || S.spec || S.preset || store.band || S.q;
     const bar = `<div class="fbar">
   <label class="fsel"><span>Brand</span><select data-in="brand"><option value="">All brands</option>${brands.map(([b, n]) => opt(b, S.brand, b + ' (' + n + ')')).join('')}${S.brand && !brands.some(x => x[0] === S.brand) ? opt(S.brand, S.brand, S.brand + ' (0)') : ''}</select></label>
-  <label class="fsel"><span>Category</span><select data-in="cat"><option value="">All categories</option>${cats.map(([c, n]) => opt(c, S.cat, c + ' (' + n + ')')).join('')}</select></label>
+  <label class="fsel"><span>Category</span><select data-in="cat"><option value="">All categories</option>${cats.map(([c, n]) => opt(c, S.cat, c + ' (' + n + ')')).join('')}${S.cat && !cats.some(x => x[0] === S.cat) ? opt(S.cat, S.cat, S.cat + ' (0)') : ''}</select></label>
   ${S.tab === 'best' ? '' : `<label class="fsel"><span>Sort</span><select data-in="sort">${Object.entries(SORTS).map(([k, v]) => opt(k, store.sort, v[0])).join('')}</select></label>`}
   <span class="cnt">${list.length} deal${list.length === 1 ? '' : 's'}</span>${active ? `<button class="clr" data-act="clearf">Clear filters</button>` : ''}</div>
  ${specRow.length ? `<div class="chiprow"><span class="lbl">Specs</span>${specRow.map(([k, n]) => `<button class="chip ${S.spec === k ? 'on' : ''}" data-act="spec" data-id="${esc(k)}">${esc(k)}<em>${n}</em></button>`).join('')}</div>` : ''}
