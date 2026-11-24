@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Redesigned panel: clean white header and cards in the same style as the other deal tools, green discount badges, brand above the title, and smaller cards so 5 fit per row on a laptop.
+- Filters made electronics-specific: Min discount and Price range are now one-tap pills (Any/30%+…70%+; Under ₹1,000 … Above ₹60k) instead of sliders.
+- Results bar with Brand and Category dropdowns (with counts) on every tab, a deal count and Clear filters.
+- Spec chips read from product titles (55 inch, 8GB RAM, 256GB, 1.5 Ton, 5G, 4K, OLED…) for one-tap filtering; the card shows the top specs too.
+- Quick picks are now savings-based (Save ₹2,000+ / ₹5,000+ / ₹10,000+, Price drops, Lowest ever); price-only presets moved into Price range.
 - Max price slider now covers electronics prices (stops from ₹500 to ₹2,00,000). It was capped at ₹2,000, so setting it hid almost every TV, phone and laptop.
 - Preset chips are now shown above the results: Under ₹1,000, Under ₹10,000, 50% off or more, Save ₹5,000+, Price drops, Lowest ever. They were defined before but never rendered.
 - Removed the grocery-style unit price (per kg / L / piece) label, sort and preset; it misread titles like "7 kg washing machine".
