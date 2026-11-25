@@ -607,7 +607,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
 .sh span{color:var(--mt);font-size:12.5px;font-weight:600}
 .more{display:inline-flex;align-items:center;gap:5px;color:var(--pr);font-weight:800;font-size:13px;white-space:nowrap}
 .hs{display:grid;grid-auto-flow:column;grid-auto-columns:180px;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
-.mob{display:flex}aside.open{transform:none}.scrim.side{display:block}
+.mob{display:flex}aside.open{transform:none}
 .tgl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--tx);white-space:nowrap;cursor:pointer}.tgl input{accent-color:var(--pr);width:16px;height:16px}
 .picker{position:absolute;z-index:7;left:50%;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100% - 24px));max-height:calc(100% - 40px);display:flex;flex-direction:column;background:var(--sf);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden;animation:fade .15s}
 .ph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--bd)}
@@ -627,7 +627,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
 .tgs code{font:12px ui-monospace,Menlo,monospace;background:var(--sf2);border-radius:5px;padding:0 5px}
 .tlink{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 13px;border-radius:99px;background:#229ed9;color:#fff;font-weight:700;font-size:12.5px;text-decoration:none}
 .tlink:hover{background:#1c8bc0}
-.scrim{position:absolute;inset:0;background:rgba(10,12,16,.45);z-index:4;animation:fade .2s}.scrim.side{display:none;z-index:3}@keyframes fade{from{opacity:0}}
+.scrim{position:absolute;inset:0;background:rgba(10,12,16,.45);z-index:4;animation:fade .2s}.scrim.side{z-index:3}@keyframes fade{from{opacity:0}}
 .body{position:relative}
 @media(max-width:900px){
  aside{position:absolute;z-index:4;top:0;bottom:0;left:0;transform:translateX(-105%);transition:transform .22s;width:min(320px,88%);box-shadow:16px 0 40px rgba(0,0,0,.16);padding:18px 16px 40px}
