@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Items Croma can't deliver to your pincode (no stores in `stockFlag`, shown on Croma as "Not available for your pincode") are now marked unavailable and hidden by default.
+- Opening the panel starts a scan right away instead of showing the category picker; Scan rescans the saved categories, and categories are chosen from the menu.
+- One filter bar above the results: Category, Brand, Price, Discount, Sort, "Available at my pincode", deal count and Reset. Spec chips, quick picks, Saved only and New only are removed; the sidebar is now a slide-out menu for pincode, Smart filter and tools.
+- Best deals leads with the biggest rupee savings instead of ₹4 accessories at 99% off.
 - Redesigned panel: clean white header and cards in the same style as the other deal tools, green discount badges, brand above the title, and smaller cards so 5 fit per row on a laptop.
 - Filters made electronics-specific: Min discount and Price range are now one-tap pills (Any/30%+…70%+; Under ₹1,000 … Above ₹60k) instead of sliders.
 - Results bar with Brand and Category dropdowns (with counts) on every tab, a deal count and Clear filters.
