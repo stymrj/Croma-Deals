@@ -1041,7 +1041,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     fabRoot.querySelector('.n').textContent = n ? String(n) : '';
   }
   const api = {
-    show() { fab.style.display = 'none'; host.style.display = 'block'; if (!OFFSITE && !S.scanning && !S.products.size && typeof captureUI !== 'function') setTimeout(scan, 300); prevOverflow = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden'; render(); },
+    show() { fab.style.display = 'none'; host.style.display = 'block'; if (!OFFSITE && typeof captureUI !== 'function') setTimeout(() => { if (host.style.display !== 'none' && !S.scanning && !S.products.size) scan(); }, 300); prevOverflow = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden'; render(); },
     hide() { host.style.display = 'none'; document.documentElement.style.overflow = prevOverflow; updateFab(); placeFab(); fab.style.display = 'block'; },
     toggle() { host.style.display === 'none' ? api.show() : api.hide(); }
   };

@@ -67,7 +67,7 @@ check('spec chips and quick picks are gone', !/data-act="(spec|preset)"/.test(sr
 check('the menu holds tools, not filters', !/data-in="(band|minDisc|stockOnly)"|data-act="(band|mindisc)"/.test(extractFn(src, '  function sidebar() {', '\n  function spark')));
 check('Scan starts right away; categories are chosen from the menu', /case 'scan': if \(S\.scanning\) break; sideOpen = false; scan\(\); break;/.test(src) && /case 'pick': openPicker\(\); break;/.test(src));
 check('a selected brand/category with 0 matches stays visible in its dropdown', /S\.cat && !cats\.some\(x => x\[0\] === S\.cat\)/.test(mv) && /S\.brand && !brands\.some/.test(mv));
-check('first open loads deals instead of opening the picker', /setTimeout\(scan, 300\)/.test(src) && !/setTimeout\(openPicker/.test(src));
+check('first open loads deals instead of opening the picker, only if the panel is still open', /setTimeout\(\(\) => \{ if \(host\.style\.display !== 'none' && !S\.scanning && !S\.products\.size[^}]*\) scan\(\); \}, 300\)/.test(src) && !/setTimeout\(openPicker/.test(src));
 check('Best deals leads with the biggest rupee savings, not ₹4 accessories', /const top = list\.slice\(\)\.sort\(bySave\)/.test(src));
 check('Reset clears price, discount and stock filters too', /case 'clearf':[^\n]*store\.band = ''; store\.minDisc = 0; store\.stockOnly = true/.test(src));
 { const cromaStock = eval('(' + extractFn(src, '  function cromaStock(x) {', '\n  // Pure helper').trim() + ')');
