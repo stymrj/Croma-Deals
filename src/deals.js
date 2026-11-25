@@ -88,6 +88,8 @@
     const status = String(st.stockLevelStatus || x.stockLevelStatus || x.stockStatus || '').toLowerCase();
     if (status === 'outofstock' || status === 'out_of_stock' || status === 'unavailable') return false;
     if (status === 'instock' || status === 'in_stock' || status === 'available') return true;
+    // Croma lists the stores that can serve the pincode in stockFlag; none = "Not available for your pincode".
+    if (Array.isArray(x.stockFlag)) return x.stockFlag.length > 0;
     if (typeof x.stockLevel === 'number') return x.stockLevel > 0;
     return null; // payload says nothing about stock: treat as available (v1 behaviour)
   }
@@ -236,7 +238,7 @@
 
   // ───────────────────────── State ─────────────────────────
   const S = { products: new Map(), scanning: false, done: 0, total: 0, errors: 0, ctl: { stop: false },
-    q: '', brand: '', cat: '', spec: '', preset: '', pick: false, tgm: false, favOnly: false, newOnly: false, shown: 60, tab: 'best', panel: false, startedAt: 0, scannedOnce: false, diag: null, selfTest: null };
+    q: '', brand: '', cat: '', pick: false, tgm: false, shown: 60, tab: 'best', panel: false, startedAt: 0, scannedOnce: false, diag: null, selfTest: null };
 
   // ───────────────────────── Scanner ─────────────────────────
   async function scan() {
@@ -247,6 +249,7 @@
     if (!jobs.length) { toast('Pick at least one category'); return; }
     S.scanning = true; S.ctl = { stop: false }; S.done = 0; S.errors = 0; S.total = jobs.length; S.startedAt = Date.now();
     S.diag = { errors: [], emptyJobs: 0, totalJobs: jobs.length, rateLimited: false, auth: false }; S.scannedOnce = true;
+    S.scanPin = typeof cromaPin === 'function' ? cromaPin() : '';
     S.products.clear(); S.shown = 60; render();
     const ctl = S.ctl, queue = jobs.slice();
     const runJob = async job => {
@@ -283,7 +286,7 @@
     store.lastScan = Date.now(); save(); render();
     notify();
     if (P.noLocation() && !S.products.size) { toast(P.noLocMsg); return; }
-    if (!S.products.size && !ctl.stop) { toast('No deals found — check your pincode on croma.com, lower Min discount, or try another category.'); return; }
+    if (!S.products.size && !ctl.stop) { toast('No deals found — check your pincode on croma.com, lower the Discount filter, or choose other categories.'); return; }
     toast(ctl.stop ? 'Scan stopped' : `Scan complete · ${S.products.size} products` + (S.errors ? ` · ${S.errors} failed` : ''));
   }
 
@@ -299,7 +302,7 @@
     if (diag.errors && diag.errors.length) out.push(diag.errors.length + ' categor' + (diag.errors.length === 1 ? 'y' : 'ies') + ' failed to load: ' + diag.errors.slice(0, 3).join('; ') + (diag.errors.length > 3 ? '…' : ''));
     if (diag.emptyJobs && diag.emptyJobs === diag.totalJobs) out.push('Every category came back empty — the categories may genuinely have no deals at this discount, or the store is showing a different location.');
     if (opts.pincodeSaved === false) out.push('No pincode is saved on the store — set your delivery pincode on the store first, then scan again.');
-    if (!out.length) out.push('No deals matched at the current minimum discount — lower Min discount in the menu or pick more categories.');
+    if (!out.length) out.push('No deals matched at the current minimum discount — lower the Discount filter or choose more categories in the menu.');
     return out;
   }
   function diagView() {
@@ -339,13 +342,6 @@
   }
 
   // ───────────────────────── Filtering ─────────────────────────
-  const PRESETS = {
-    save2k: ['Save ₹2,000+', p => p.save >= 2000],
-    save5k: ['Save ₹5,000+', p => p.save >= 5000],
-    save10k: ['Save ₹10,000+', p => p.save >= 10000],
-    drops: ['Price drops', p => !!p.was],
-    lowest: ['Lowest ever', p => !!p.lowEver]
-  };
   // Electronics price bands: [label, above ₹, up to ₹ (0 = no limit)].
   const PRICE_BANDS = {
     u1k: ['Under ₹1,000', 0, 1000], b5k: ['₹1k – ₹5k', 1000, 5000], b15k: ['₹5k – ₹15k', 5000, 15000],
@@ -401,10 +397,7 @@
       if (store.band && !inBand(p, store.band)) return;
       if (skip !== 'brand' && S.brand && p.brand !== S.brand) return;
       if (skip !== 'cat' && S.cat && p.cat.split(' › ')[0] !== S.cat) return;
-      if (skip !== 'spec' && S.spec && !specs(p).includes(S.spec)) return;
-      if ((S.favOnly || S.tab === 'saved') && !fav.has(p.id)) return;
-      if (S.newOnly && !p.isNew && !p.was) return;
-      if (S.preset && !PRESETS[S.preset][1](p)) return;
+      if (S.tab === 'saved' && !fav.has(p.id)) return;
       if (q.length) { const t = (p.title + ' ' + p.brand + ' ' + p.cat).toLowerCase(); if (!q.every(w => t.includes(w))) return; }
       out.push(p);
     });
@@ -481,7 +474,7 @@ header{display:flex;align-items:center;gap:10px;padding:0 16px;height:60px;flex:
 .dot.on{background:#22c55e}
 .prog{position:absolute;left:0;bottom:-1px;height:3px;background:var(--pr);transition:width .3s}
 .body{flex:1;display:flex;min-height:0}
-aside{width:264px;flex:none;background:var(--sf);border-right:1px solid var(--bd);overflow:auto;padding:16px 16px 40px;display:flex;flex-direction:column;gap:20px}
+aside{position:absolute;z-index:4;top:0;bottom:0;left:0;transform:translateX(-105%);transition:transform .22s;box-shadow:16px 0 40px rgba(0,0,0,.16);width:min(320px,88%);flex:none;background:var(--sf);border-right:1px solid var(--bd);overflow:auto;padding:16px 16px 40px;display:flex;flex-direction:column;gap:20px}
 aside h4{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 aside h4 .i{color:var(--pr)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -528,39 +521,39 @@ select{height:34px;border:1px solid var(--bd);border-radius:6px;background:var(-
 .seg{display:inline-flex;background:var(--sf2);border-radius:10px;padding:3px}
 .seg button{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;font-size:13px;font-weight:700;border-radius:8px;color:var(--mt)}
 .seg button.on{background:var(--sf);color:var(--tx);box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
 .grid.list{grid-template-columns:1fr;gap:10px}
 .card{background:var(--sf);border:1px solid var(--bd);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;position:relative;transition:transform .15s,box-shadow .15s,border-color .15s}
 .card:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.12);border-color:var(--pl)}
 .card.oos .im,.card.oos .inf{opacity:.5}
 .list .card{flex-direction:row}.list .card:hover{transform:none}
-.list .im{width:120px;height:120px;flex:none}
-.im{height:150px;background:#fafafa;position:relative;display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden}
+.list .im{width:96px;height:96px;flex:none}
+.im{height:112px;background:#fafafa;position:relative;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden}
 .app.dark .im{background:#fff}
 .im img{max-width:100%;max-height:100%;object-fit:contain}
-.dc{position:absolute;left:6px;top:6px;background:var(--ok);color:#fff;border-radius:4px;font-size:11px;font-weight:800;padding:3px 6px;box-shadow:0 2px 5px rgba(5,133,82,.35);letter-spacing:-.1px}
+.dc{position:absolute;left:5px;top:5px;background:var(--ok);color:#fff;border-radius:4px;font-size:10px;font-weight:800;padding:2px 5px;box-shadow:0 2px 5px rgba(5,133,82,.35);letter-spacing:-.1px}
 .dc.hot{background:var(--hot);box-shadow:0 2px 5px rgba(204,12,57,.3)}
-.tg{position:absolute;left:6px;top:30px;display:inline-flex;align-items:center;gap:3px;background:#232f3e;color:#fff;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px}
-.fv{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;background:#fff;color:#7a808c;display:grid;place-items:center;border:1px solid #e2e8f0}
+.tg{position:absolute;left:5px;top:25px;display:inline-flex;align-items:center;gap:3px;background:#232f3e;color:#fff;border-radius:4px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px}
+.fv{position:absolute;top:5px;right:5px;width:24px;height:24px;border-radius:50%;background:#fff;color:#7a808c;display:grid;place-items:center;border:1px solid #e2e8f0}
 .fv:hover{color:var(--hot)}
 .fv.on{color:var(--hot)}.fv.on svg{fill:currentColor}
-.inf{padding:8px 10px 10px;display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;border-top:1px solid var(--bd)}
+.inf{padding:6px 8px 8px;display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;border-top:1px solid var(--bd)}
 .br{font-size:10px;font-weight:700;color:var(--mt);text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spx{font-size:11px;color:var(--mt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ti{font-size:12.5px;font-weight:600;line-height:1.35;min-height:34px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--tx);text-decoration:none;word-break:break-word}
+.ti{font-size:12px;font-weight:600;line-height:1.3;min-height:31px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--tx);text-decoration:none;word-break:break-word}
 a.ti:hover{color:var(--pr)}
 .ct{font-size:12px;color:var(--mt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pr{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-top:4px}
-.pr b{font-size:16px;font-weight:700;letter-spacing:-.3px}
-.pr s{color:var(--mt);font-size:11.5px}
-.sv{font-size:11.5px;color:var(--ok);font-weight:700}
+.pr{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;margin-top:2px}
+.pr b{font-size:14.5px;font-weight:700;letter-spacing:-.3px}
+.pr s{color:var(--mt);font-size:10.5px}
+.sv{font-size:11px;color:var(--ok);font-weight:700}
 .sv i{font-style:normal;color:var(--hot)}
 .was{font-size:12px;color:var(--mt)}
-.acts{display:flex;gap:6px;margin-top:auto;padding-top:8px}
-.acts button{flex:1;height:32px;border-radius:6px;font-size:12px;font-weight:700;background:var(--sf);color:var(--pr);box-shadow:inset 0 0 0 1px var(--pr);display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.acts{display:flex;gap:5px;margin-top:auto;padding-top:6px}
+.acts button{flex:1;height:28px;border-radius:6px;font-size:11.5px;font-weight:700;background:var(--sf);color:var(--pr);box-shadow:inset 0 0 0 1px var(--pr);display:inline-flex;align-items:center;justify-content:center;gap:5px}
 .acts button:hover{background:var(--pr);color:#fff}
 .acts .add.in{background:var(--pr);color:#fff}
-.acts .hide{flex:none;width:32px;background:var(--sf2);color:var(--mt);box-shadow:none}
+.acts .hide{flex:none;width:28px;background:var(--sf2);color:var(--mt);box-shadow:none}
 .acts .hide:hover{background:var(--bd);color:var(--tx)}
 .empty{color:var(--mt);padding:80px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
 .empty .ei{width:56px;height:56px;border-radius:16px;background:var(--sf2);color:var(--pr);display:grid;place-items:center;margin-bottom:8px}
@@ -579,7 +572,7 @@ a.ti:hover{color:var(--pr)}
 .df .tot{font-size:24px;font-weight:800;letter-spacing:-.6px}
 .toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:var(--tx);color:var(--bg);padding:12px 18px;border-radius:12px;opacity:0;transition:.2s;pointer-events:none;z-index:9;max-width:90%;font-weight:600}
 .toast.on{transform:translateX(-50%);opacity:1}
-.menu-btn{display:none}
+.menu-btn{display:inline-flex}
 kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;font-weight:700}
 .presets{margin-bottom:14px}
 .presets .chip{padding:5px 10px}
@@ -615,7 +608,8 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
 .sh span{color:var(--mt);font-size:12.5px;font-weight:600}
 .more{display:inline-flex;align-items:center;gap:5px;color:var(--pr);font-weight:800;font-size:13px;white-space:nowrap}
 .hs{display:grid;grid-auto-flow:column;grid-auto-columns:180px;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
-.mob{display:none}
+.mob{display:flex}aside.open{transform:none}
+.tgl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--tx);white-space:nowrap;cursor:pointer}.tgl input{accent-color:var(--pr);width:16px;height:16px}
 .picker{position:absolute;z-index:7;left:50%;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100% - 24px));max-height:calc(100% - 40px);display:flex;flex-direction:column;background:var(--sf);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden;animation:fade .15s}
 .ph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--bd)}
 .ph b{display:block;font-size:18px;font-weight:800;letter-spacing:-.3px}.ph small{color:var(--mt);font-size:12.5px;font-weight:600}
@@ -634,7 +628,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
 .tgs code{font:12px ui-monospace,Menlo,monospace;background:var(--sf2);border-radius:5px;padding:0 5px}
 .tlink{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 13px;border-radius:99px;background:#229ed9;color:#fff;font-weight:700;font-size:12.5px;text-decoration:none}
 .tlink:hover{background:#1c8bc0}
-.scrim{position:absolute;inset:0;background:rgba(10,12,16,.45);z-index:4;animation:fade .2s}.scrim.side{display:none;z-index:3}@keyframes fade{from{opacity:0}}
+.scrim{position:absolute;inset:0;background:rgba(10,12,16,.45);z-index:4;animation:fade .2s}.scrim.side{z-index:3}@keyframes fade{from{opacity:0}}
 .body{position:relative}
 @media(max-width:900px){
  aside{position:absolute;z-index:4;top:0;bottom:0;left:0;transform:translateX(-105%);transition:transform .22s;width:min(320px,88%);box-shadow:16px 0 40px rgba(0,0,0,.16);padding:18px 16px 40px}
@@ -656,8 +650,8 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
  .hs{grid-auto-columns:46%;gap:10px;margin:0 -12px;padding:0 12px 6px;scrollbar-width:none}.hs::-webkit-scrollbar{display:none}
  .sh h3{font-size:16px}.sec{margin-bottom:22px}
  .card{border-radius:8px}.card:hover{transform:none;box-shadow:none}
- .im{height:120px;padding:6px}.inf{padding:6px 8px 8px}.ti{font-size:12px;min-height:32px}.pr b{font-size:14px}.pr s{font-size:10.5px}.sv{font-size:11px}
- .acts button{height:30px;font-size:11.5px;gap:4px}.acts .hide{width:30px}
+ .im{height:96px;padding:6px}.inf{padding:5px 7px 7px}.ti{font-size:11.5px;min-height:30px}.pr b{font-size:13.5px}.pr s{font-size:10px}.sv{font-size:10.5px}
+ .acts button{height:26px;font-size:11px;gap:3px}.acts .hide{width:26px}
  .dc{font-size:10px;padding:2px 5px;left:4px;top:4px}.tg{left:4px;top:24px;font-size:9px}.fv{width:26px;height:26px;top:4px;right:4px}
  .list .im{width:88px;height:88px}
  .check{margin:20px 0;padding:18px}
@@ -673,8 +667,8 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
   function scanUI() {
     return `<div><h4>${ic('scan', 15)}Scan</h4>
   ${P.locUI(store, esc)}
-  <p class="note" style="margin-top:6px">Each scan asks which categories to check. Last time: ${store.groups.length} of ${GROUPS.length}.</p></div>
- ${S.scanning ? `<button class="btn stop" data-act="stop">${ic('stop')}Stop scan</button>` : `<button class="btn" data-act="scan">${ic('scan')}Choose & scan</button>`}`;
+  <p class="note" style="margin-top:6px">Scan checks ${store.groups.length} of ${GROUPS.length} categories, ${store.depth} page${store.depth === 1 ? '' : 's'} each.</p></div>
+ ${S.scanning ? `<button class="btn stop" data-act="stop">${ic('stop')}Stop scan</button>` : `<button class="btn ghost" data-act="pick">${ic('sliders')}Choose categories</button>`}`;
   }
   // Asked before every scan: which categories, and how deep.
   function pickerUI() {
@@ -720,19 +714,13 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
   }
   function sidebar() {
     return `<aside class="${sideOpen ? 'open' : ''}">
- <div class="mob" style="gap:8px;flex-wrap:wrap"><button class="chip" data-act="theme">${ic('moon', 14)}Theme</button><button class="chip" data-act="tgopen">${ic('send', 14)}Telegram ${store.tg.on && tgReady() ? 'on' : 'off'}</button><button class="chip" data-act="side">${ic('x', 14)}Close menu</button></div>
+ <div class="mob" style="gap:8px;flex-wrap:wrap"><button class="chip" data-act="theme">${ic('moon', 14)}Theme</button><button class="chip" data-act="tgopen">${ic('send', 14)}Telegram ${store.tg.on && tgReady() ? 'on' : 'off'}</button><button class="chip" data-act="side">${ic('x', 14)}Close</button></div>
  ${typeof captureUI === 'function' && !OFFSITE ? captureUI() : scanUI()}
  <div><h4>${ic('eyeoff', 15)}Smart filter</h4>
   <label class="sw"><input type="checkbox" data-in="smartFilter" ${store.smartFilter ? 'checked' : ''}> Hide unavailable + auto-load more</label>
   <p class="note" style="margin-top:6px">Runs on the Croma listing page behind this panel: hides “Currently Unavailable” cards and keeps loading more as you scroll. Pauses while you use menus.</p>
   <div class="chips" style="margin-top:8px"><button class="chip" data-act="smartfilter">${store.smartFilter ? 'Stop smart filter' : 'Start smart filter'}</button></div></div>
- <div><h4>${ic('sliders', 15)}Min discount</h4><div class="pills c3">${DISC_STEPS.map(d => `<button class="pill ${store.minDisc === d ? 'on' : ''}" data-act="mindisc" data-id="${d}">${d ? d + '%+' : 'Any'}</button>`).join('')}</div></div>
- <div><h4>${ic('tag', 15)}Price range</h4><div class="pills c2">${Object.entries(PRICE_BANDS).map(([k, v]) => `<button class="pill ${store.band === k ? 'on' : ''}" data-act="band" data-id="${k}">${v[0]}</button>`).join('')}</div></div>
- <div><h4>${ic('check', 15)}Show</h4><div class="stack">
-  <label class="sw"><input type="checkbox" data-in="stockOnly" ${store.stockOnly ? 'checked' : ''}> In stock only</label>
-  <label class="sw"><input type="checkbox" data-in="favOnly" ${S.favOnly ? 'checked' : ''}> Saved only</label>
-  <label class="sw"><input type="checkbox" data-in="newOnly" ${S.newOnly ? 'checked' : ''}> New or price dropped</label></div></div>
- <div><h4>${ic('download', 15)}Export</h4><div class="chips"><button class="chip" data-act="csv">${ic('download', 14)}CSV</button><button class="chip" data-act="json">${ic('download', 14)}JSON</button><button class="chip" data-act="selftest">${ic('check', 14)}Self-test</button><button class="chip" data-act="copyall">${ic('copy', 14)}Copy top 20</button><button class="chip" data-act="unhide">${ic('eyeoff', 14)}Unhide (${store.hidden.length})</button></div>
+ <div><h4>${ic('download', 15)}Tools</h4><div class="chips"><button class="chip" data-act="csv">${ic('download', 14)}CSV</button><button class="chip" data-act="json">${ic('download', 14)}JSON</button><button class="chip" data-act="selftest">${ic('check', 14)}Self-test</button><button class="chip" data-act="copyall">${ic('copy', 14)}Copy top 20</button><button class="chip" data-act="unhide">${ic('eyeoff', 14)}Unhide (${store.hidden.length})</button></div>
   <p class="note" style="margin-top:14px"><kbd>/</kbd> search &nbsp;<kbd>S</kbd> scan &nbsp;<kbd>Esc</kbd> close</p></div>
 </aside>`;
   }
@@ -770,16 +758,17 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
   <div class="pr"><b>${$inr(p.price)}</b><s>${$inr(p.mrp)}</s></div>
   <div class="sv">Save ${$inr(p.save)}${p.inStock ? '' : ' · <i>Out of stock</i>'}</div>
   ${spark(p)}
-  <div class="acts"><button class="add ${inList ? 'in' : ''}" data-act="add" data-id="${esc(p.id)}">${inList ? ic('check', 14) + 'In list · ' + inList : ic('plus', 14) + 'Add to list'}</button><button class="hide" data-act="hide" data-id="${esc(p.id)}" title="Hide">${ic('eyeoff', 14)}</button></div></div></article>`;
+  <div class="acts"><button class="add ${inList ? 'in' : ''}" data-act="add" data-id="${esc(p.id)}">${inList ? ic('check', 13) + 'In list · ' + inList : ic('plus', 13) + 'Add'}</button><button class="hide" data-act="hide" data-id="${esc(p.id)}" title="Hide">${ic('eyeoff', 14)}</button></div></div></article>`;
   }
   const byDisc = (a, b) => b.disc - a.disc || b.save - a.save;
+  const bySave = (a, b) => b.save - a.save || b.disc - a.disc;
   function bestView(list) {
     if (!list.length) return '';
-    const top = list.slice().sort(byDisc).slice(0, 12), fav = new Set(store.favs);
+    const top = list.slice().sort(bySave).slice(0, 12), fav = new Set(store.favs);
     const cats = new Map();
     for (const p of list) { const c = p.cat.split(' › ')[0]; if (!cats.has(c)) cats.set(c, []); cats.get(c).push(p); }
     const rows = [...cats.entries()].map(([c, ps]) => [c, ps.sort(byDisc)]).sort((x, y) => y[1][0].disc - x[1][0].disc);
-    return `<section class="sec"><div class="sh"><h3>Biggest discounts right now</h3><span>${list.length} deals from ${cats.size} categories</span></div>
+    return `<section class="sec"><div class="sh"><h3>Biggest savings right now</h3><span>${list.length} deals from ${cats.size} categories</span></div>
   <div class="grid">${top.map(p => card(p, fav.has(p.id), store.list)).join('')}</div></section>
  ${rows.map(([c, ps]) => `<section class="sec"><div class="sh"><h3>${esc(c)}</h3><button class="more" data-act="seeall" data-id="${esc(c)}">See all ${ps.length}${ic('ext', 13)}</button></div>
   <div class="hs">${ps.slice(0, 10).map(p => card(p, fav.has(p.id), store.list)).join('')}</div></section>`).join('')}`;
@@ -791,25 +780,25 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     const tabs = [['best', 'Best deals'], ['all', 'All deals'], ['saved', 'Saved' + (store.favs.length ? ' · ' + store.favs.length : '')]];
     const count = (arr, key) => { const m = new Map(); arr.forEach(p => [].concat(key(p)).forEach(k => k && m.set(k, (m.get(k) || 0) + 1))); return [...m.entries()].sort((x, y) => y[1] - x[1] || String(x[0]).localeCompare(y[0])); };
     const brands = count(filtered('brand'), p => p.brand).slice(0, 40), cats = count(filtered('cat'), p => p.cat.split(' › ')[0]);
-    const specRow = count(filtered('spec'), specs).filter(([k, n]) => n > 1 || k === S.spec).slice(0, 12);
     const opt = (v, cur, label) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(label)}</option>`;
-    const active = S.brand || S.cat || S.spec || S.preset || store.band || S.q || S.favOnly || S.newOnly;
+    const active = S.brand || S.cat || store.band || store.minDisc || S.q || !store.stockOnly;
     const bar = `<div class="fbar">
-  <label class="fsel"><span>Brand</span><select data-in="brand"><option value="">All brands</option>${brands.map(([b, n]) => opt(b, S.brand, b + ' (' + n + ')')).join('')}${S.brand && !brands.some(x => x[0] === S.brand) ? opt(S.brand, S.brand, S.brand + ' (0)') : ''}</select></label>
   <label class="fsel"><span>Category</span><select data-in="cat"><option value="">All categories</option>${cats.map(([c, n]) => opt(c, S.cat, c + ' (' + n + ')')).join('')}${S.cat && !cats.some(x => x[0] === S.cat) ? opt(S.cat, S.cat, S.cat + ' (0)') : ''}</select></label>
+  <label class="fsel"><span>Brand</span><select data-in="brand"><option value="">All brands</option>${brands.map(([b, n]) => opt(b, S.brand, b + ' (' + n + ')')).join('')}${S.brand && !brands.some(x => x[0] === S.brand) ? opt(S.brand, S.brand, S.brand + ' (0)') : ''}</select></label>
+  <label class="fsel"><span>Price</span><select data-in="band"><option value="">Any price</option>${Object.entries(PRICE_BANDS).map(([k, v]) => opt(k, store.band, v[0])).join('')}</select></label>
+  <label class="fsel"><span>Discount</span><select data-in="minDisc">${DISC_STEPS.map(d => opt(String(d), String(store.minDisc), d ? d + '% or more' : 'Any discount')).join('')}</select></label>
   ${S.tab === 'best' ? '' : `<label class="fsel"><span>Sort</span><select data-in="sort">${Object.entries(SORTS).map(([k, v]) => opt(k, store.sort, v[0])).join('')}</select></label>`}
-  <span class="cnt">${list.length} deal${list.length === 1 ? '' : 's'}</span>${active ? `<button class="clr" data-act="clearf">Clear filters</button>` : ''}</div>
- ${specRow.length ? `<div class="chiprow"><span class="lbl">Specs</span>${specRow.map(([k, n]) => `<button class="chip ${S.spec === k ? 'on' : ''}" data-act="spec" data-id="${esc(k)}">${esc(k)}<em>${n}</em></button>`).join('')}</div>` : ''}
- <div class="chiprow presets"><span class="lbl">Quick picks</span>${Object.entries(PRESETS).map(([k, v]) => `<button class="chip ${S.preset === k ? 'on' : ''}" data-act="preset" data-id="${k}" aria-pressed="${S.preset === k}">${esc(v[0])}</button>`).join('')}</div>`;
+  <label class="tgl"><input type="checkbox" data-in="stockOnly" ${store.stockOnly ? 'checked' : ''}> Available at my pincode</label>
+  <span class="cnt">${list.length} deal${list.length === 1 ? '' : 's'}</span>${active ? `<button class="clr" data-act="clearf">Reset</button>` : ''}</div>`;
     const head = `<div class="tabs">${tabs.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}${S.scanning ? `<span class="live">${ic('scan', 14)}Scanning ${S.done}/${S.total}</span>` : ''}</div>${bar}`;
     let body;
     if (S.tab === 'best') {
-      body = bestView(list) || `<div class="empty"><span class="ei">${ic(S.scanning ? 'scan' : 'tag', 26)}</span><b>${S.scanning ? 'Finding the best deals…' : 'No deals match these filters'}</b>${S.scanning ? 'They appear here as each category comes in.' : 'Lower the minimum discount, pick another price range, or clear filters.'}</div>`;
+      body = bestView(list) || `<div class="empty"><span class="ei">${ic(S.scanning ? 'scan' : 'tag', 26)}</span><b>${S.scanning ? 'Finding the best deals…' : 'No deals match these filters'}</b>${S.scanning ? 'They appear here as each category comes in.' : 'Try a lower discount or another price, or press Reset.'}</div>`;
     } else {
       const fav = new Set(store.favs), tools = '';
       body = tools + (list.length ? `<div class="grid ${store.view}">${list.slice(0, S.shown).map(p => card(p, fav.has(p.id), store.list)).join('')}</div>
    ${list.length > S.shown ? `<div style="text-align:center;margin-top:24px"><button class="btn ghost" data-act="more">Show more (${list.length - S.shown} left)</button></div>` : ''}`
-        : `<div class="empty"><span class="ei">${ic(S.tab === 'saved' ? 'heart' : 'tag', 26)}</span><b>${S.tab === 'saved' ? 'Nothing saved yet' : 'Nothing matches'}</b>${S.tab === 'saved' ? 'Tap the heart on any deal to keep an eye on it.' : 'Try another brand, spec or a lower minimum discount.'}</div>`);
+        : `<div class="empty"><span class="ei">${ic(S.tab === 'saved' ? 'heart' : 'tag', 26)}</span><b>${S.tab === 'saved' ? 'Nothing saved yet' : 'Nothing matches'}</b>${S.tab === 'saved' ? 'Tap the heart on any deal to keep an eye on it.' : 'Try another brand or a lower discount, or press Reset.'}</div>`);
     }
     return `<main id="main">${head}${body}</main>`;
   }
@@ -948,7 +937,8 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     if (k === 'smartFilter') { if (v) startSmartFilter(); else stopSmartFilter(); render(); return; }
     if (k === 'stockOnly') { store.stockOnly = v; save(); }
     else if (k === 'sort') { store.sort = v; save(); }
-    else if (k === 'favOnly') S.favOnly = v; else if (k === 'newOnly') S.newOnly = v;
+    else if (k === 'band') { store.band = v; save(); }
+    else if (k === 'minDisc') { store.minDisc = +v; save(); }
     else if (k === 'cat') S.cat = v; else if (k === 'brand') S.brand = v;
     else return;
     S.shown = 60; render();
@@ -966,7 +956,8 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
       case 'grp': store.groups = store.groups.includes(id) ? store.groups.filter(x => x !== id) : store.groups.concat(id); save(); render(); break;
       case 'all': store.groups = GROUPS.map(g => g.id); save(); render(); break;
       case 'none': store.groups = []; save(); render(); break;
-      case 'scan': openPicker(); break;
+      case 'scan': if (S.scanning) break; sideOpen = false; scan(); break;
+      case 'pick': openPicker(); break;
       case 'pstart': if (!store.groups.length) { toast('Pick at least one category'); break; } S.pick = false; render(); scan(); break;
       case 'pclose': S.pick = false; render(); break;
       case 'stop': S.ctl.stop = true; toast('Stopping…'); break;
@@ -982,14 +973,10 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
         if (store.favs.includes(id)) { store.favs = store.favs.filter(x => x !== id); delete store.favAt[id]; }
         else { store.favs = store.favs.concat(id); const p = S.products.get(id); if (p) store.favAt[id] = p.price; }
         save(); render(); break;
-      case 'preset': S.preset = S.preset === id ? '' : id; S.shown = 60; render(); break;
-      case 'spec': S.spec = S.spec === id ? '' : id; S.shown = 60; render(); break;
-      case 'band': store.band = store.band === id ? '' : id; save(); S.shown = 60; render(); break;
-      case 'mindisc': store.minDisc = +id; save(); S.shown = 60; render(); break;
-      case 'clearf': S.brand = S.cat = S.spec = S.preset = S.q = ''; S.favOnly = S.newOnly = false; store.band = ''; save(); S.shown = 60; render(); break;
+      case 'clearf': S.brand = S.cat = S.q = ''; store.band = ''; store.minDisc = 0; store.stockOnly = true; save(); S.shown = 60; render(); break;
       case 'tab': S.tab = el.dataset.v; S.shown = 60; render(); { const m = root.getElementById('main'); if (m) m.scrollTop = 0; } break;
       case 'seeall': S.tab = 'all'; S.cat = id; S.shown = 60; render(); { const m = root.getElementById('main'); if (m) m.scrollTop = 0; } break;
-      case 'hide': store.hidden.push(id); save(); render(); toast('Hidden — undo via Export › Unhide'); break;
+      case 'hide': store.hidden.push(id); save(); render(); toast('Hidden. Undo from Menu › Unhide'); break;
       case 'unhide': store.hidden = []; save(); render(); break;
       case 'add': store.list[id] = (store.list[id] || 0) + 1; { const p = S.products.get(id); if (p) store._cache[id] = p; } save(); render(); break;
       case 'inc': store.list[id]++; save(); render(); break;
@@ -1015,7 +1002,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     else if (e.key === 'Escape') { if (S.panel) { S.panel = false; render(); } else if (typing) root.activeElement.blur(); else api.hide(); }
     else if (!typing && !e.metaKey && !e.ctrlKey) {
       if (e.key === '/') { e.preventDefault(); const i = root.querySelector('[data-in=q]'); i && i.focus(); }
-      else if (e.key.toLowerCase() === 's') S.scanning ? (S.ctl.stop = true) : openPicker();
+      else if (e.key.toLowerCase() === 's') S.scanning ? (S.ctl.stop = true) : scan();
     }
     if (!typing || e.key === 'Escape') e.stopPropagation();
   }, true);
@@ -1055,7 +1042,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     fabRoot.querySelector('.n').textContent = n ? String(n) : '';
   }
   const api = {
-    show() { fab.style.display = 'none'; host.style.display = 'block'; if (!OFFSITE && !S.scanning && !S.products.size && typeof captureUI !== 'function') setTimeout(openPicker, 300); prevOverflow = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden'; render(); },
+    show() { fab.style.display = 'none'; host.style.display = 'block'; if (!OFFSITE && typeof captureUI !== 'function') setTimeout(() => { if (host.style.display !== 'none' && !S.scanning && (!S.products.size || (typeof cromaPin === 'function' && S.scanPin !== cromaPin()))) scan(); }, 300); prevOverflow = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden'; render(); },
     hide() { host.style.display = 'none'; document.documentElement.style.overflow = prevOverflow; updateFab(); placeFab(); fab.style.display = 'block'; },
     toggle() { host.style.display === 'none' ? api.show() : api.hide(); }
   };

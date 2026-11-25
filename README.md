@@ -33,7 +33,7 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 - Labels products that are new, cheaper than last time, or at their lowest price ever
 - Price history sparkline on every product you have seen before
 - Saved items strip showing how much each one dropped since you saved it
-- One-tap filters: discount pills, electronics price bands, Brand/Category dropdowns with counts, spec chips (55 inch, 8GB RAM, 1.5 Ton…) and quick picks (save ₹2,000+/₹5,000+/₹10,000+, price drops, lowest ever)
+- One filter bar: Category and Brand (with counts), Price band, minimum Discount, Sort and "Available at my pincode", plus Reset
 - A setup checklist on first open
 - Filters: search (title, brand, category), category, maximum price (up to ₹2,00,000), minimum discount, stock, saved items
 - In-stock-only is on by default; turn it off to see out-of-stock items, labelled as such
@@ -59,7 +59,7 @@ Scans the Croma categories you pick, sorted by discount, and shows the biggest p
 
 ## Use
 
-Pick categories in the scan picker, press Scan, and browse Best deals / All deals / Saved. Heart a deal to save it, Add to list to build a shopping list, and narrow results with the discount and price pills in the sidebar, the Brand / Category dropdowns and spec chips above the results, and the quick picks (save ₹5,000+, price drops, lowest ever). Press **Self-test** in the sidebar any time to check the parser without scanning.
+Open the panel and it scans right away; browse Best deals / All deals / Saved. Heart a deal to save it, Add to list to build a shopping list, and narrow results with the filter bar above the results. Open the menu (top-left) to change pincode, choose categories, turn on Smart filter, export, or run **Self-test** to check the parser without scanning.
  Smart Filter mode (Croma only): open a Croma category/search page, open Hunter, and switch on "Hide unavailable + auto-load more" in the sidebar — unavailable cards disappear and more results keep loading as you scroll.
 
 ## Keyboard shortcuts
