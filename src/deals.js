@@ -249,6 +249,7 @@
     if (!jobs.length) { toast('Pick at least one category'); return; }
     S.scanning = true; S.ctl = { stop: false }; S.done = 0; S.errors = 0; S.total = jobs.length; S.startedAt = Date.now();
     S.diag = { errors: [], emptyJobs: 0, totalJobs: jobs.length, rateLimited: false, auth: false }; S.scannedOnce = true;
+    S.scanPin = typeof cromaPin === 'function' ? cromaPin() : '';
     S.products.clear(); S.shown = 60; render();
     const ctl = S.ctl, queue = jobs.slice();
     const runJob = async job => {
@@ -1041,7 +1042,7 @@ kbd{border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:11px;fo
     fabRoot.querySelector('.n').textContent = n ? String(n) : '';
   }
   const api = {
-    show() { fab.style.display = 'none'; host.style.display = 'block'; if (!OFFSITE && typeof captureUI !== 'function') setTimeout(() => { if (host.style.display !== 'none' && !S.scanning && !S.products.size) scan(); }, 300); prevOverflow = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden'; render(); },
+    show() { fab.style.display = 'none'; host.style.display = 'block'; if (!OFFSITE && typeof captureUI !== 'function') setTimeout(() => { if (host.style.display !== 'none' && !S.scanning && (!S.products.size || (typeof cromaPin === 'function' && S.scanPin !== cromaPin()))) scan(); }, 300); prevOverflow = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden'; render(); },
     hide() { host.style.display = 'none'; document.documentElement.style.overflow = prevOverflow; updateFab(); placeFab(); fab.style.display = 'block'; },
     toggle() { host.style.display === 'none' ? api.show() : api.hide(); }
   };

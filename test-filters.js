@@ -69,6 +69,7 @@ check('Scan starts right away; categories are chosen from the menu', /case 'scan
 check('a selected brand/category with 0 matches stays visible in its dropdown', /S\.cat && !cats\.some\(x => x\[0\] === S\.cat\)/.test(mv) && /S\.brand && !brands\.some/.test(mv));
 check('first open loads deals instead of opening the picker, only if the panel is still open', /setTimeout\(\(\) => \{ if \(host\.style\.display !== 'none' && !S\.scanning && !S\.products\.size[^}]*\) scan\(\); \}, 300\)/.test(src) && !/setTimeout\(openPicker/.test(src));
 check('menu scrim is not hidden by CSS on desktop', !/\.scrim\.side\{display:none/.test(src));
+check('reopening after a Croma pincode change rescans', /S\.scanPin = typeof cromaPin === 'function' \? cromaPin\(\) : ''/.test(src) && /S\.scanPin !== cromaPin\(\)\)\)\) scan\(\)/.test(src));
 check('Best deals leads with the biggest rupee savings, not ₹4 accessories', /const top = list\.slice\(\)\.sort\(bySave\)/.test(src));
 check('Reset clears price, discount and stock filters too', /case 'clearf':[^\n]*store\.band = ''; store\.minDisc = 0; store\.stockOnly = true/.test(src));
 { const cromaStock = eval('(' + extractFn(src, '  function cromaStock(x) {', '\n  // Pure helper').trim() + ')');
